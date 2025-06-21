@@ -515,6 +515,130 @@ def obtenir_presences_par_personne(nom):
     finally:
         conn.close()
 
+def obtenir_etudiant_par_id(id_etudiant):
+    """
+    Récupère un étudiant par son ID
+
+    Args:
+        id_etudiant (str): ID de l'étudiant
+
+    Returns:
+        dict ou None: Informations de l'étudiant ou None si non trouvé
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            SELECT id_etudiant, nom, prenom, email, telephone, date_creation
+            FROM etudiants
+            WHERE id_etudiant = ?
+        ''', (id_etudiant,))
+
+        result = cursor.fetchone()
+
+        if result:
+            return {
+                'id_etudiant': result[0],
+                'nom': result[1],
+                'prenom': result[2],
+                'email': result[3],
+                'telephone': result[4],
+                'date_creation': result[5]
+            }
+        return None
+
+    except Exception as e:
+        print(f"Erreur lors de la récupération de l'étudiant: {e}")
+        return None
+    finally:
+        conn.close()
+
+def modifier_etudiant(id_etudiant, nom, prenom, email, telephone=""):
+    """
+    Modifie les informations d'un étudiant
+
+    Args:
+        id_etudiant (str): ID de l'étudiant
+        nom (str): Nouveau nom
+        prenom (str): Nouveau prénom
+        email (str): Nouvel email
+        telephone (str): Nouveau téléphone (optionnel)
+
+    Returns:
+        bool: True si succès, False sinon
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            UPDATE etudiants
+            SET nom = ?, prenom = ?, email = ?, telephone = ?
+            WHERE id_etudiant = ?
+        ''', (nom, prenom, email, telephone, id_etudiant))
+
+        success = cursor.rowcount > 0
+        conn.commit()
+
+        if success:
+            print(f"Étudiant {prenom} {nom} modifié avec succès")
+
+        return success
+
+    except Exception as e:
+        print(f"Erreur lors de la modification de l'étudiant: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def supprimer_etudiant(id_etudiant):
+    """
+    Supprime un étudiant et toutes ses présences
+
+    Args:
+        id_etudiant (str): ID de l'étudiant
+
+    Returns:
+        bool: True si succès, False sinon
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Récupérer le nom de l'étudiant avant suppression
+        cursor.execute('SELECT prenom, nom FROM etudiants WHERE id_etudiant = ?', (id_etudiant,))
+        result = cursor.fetchone()
+
+        if not result:
+            print(f"Étudiant avec ID {id_etudiant} non trouvé")
+            return False
+
+        prenom, nom = result
+        student_name = f"{prenom} {nom}"
+
+        # Supprimer les présences associées
+        cursor.execute('DELETE FROM presences WHERE nom = ?', (student_name,))
+
+        # Supprimer l'étudiant
+        cursor.execute('DELETE FROM etudiants WHERE id_etudiant = ?', (id_etudiant,))
+
+        success = cursor.rowcount > 0
+        conn.commit()
+
+        if success:
+            print(f"Étudiant {student_name} supprimé avec succès")
+
+        return success
+
+    except Exception as e:
+        print(f"Erreur lors de la suppression de l'étudiant: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
 # Fonction d'initialisation à appeler au démarrage
 if __name__ == "__main__":
     # Initialiser la base de données

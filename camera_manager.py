@@ -26,7 +26,7 @@ class CameraManager:
         print("🔍 Détection des caméras disponibles...")
         cameras = []
         
-        # Tester les indices de caméra de 0 à 10
+        # Tester les indices de caméra de 0 à 10 (0 en premier pour la caméra intégrée)
         for i in range(11):
             try:
                 cap = cv2.VideoCapture(i)
@@ -174,65 +174,72 @@ class CameraManager:
     def _is_builtin_camera(self, index):
         """
         Détermine si une caméra est intégrée à l'ordinateur
-        
+
         Args:
             index (int): Index de la caméra
-            
+
         Returns:
             bool: True si la caméra est intégrée
         """
-        # La caméra index 0 est généralement la caméra intégrée
+        # PRIORITÉ ABSOLUE : La caméra index 0 est TOUJOURS la caméra intégrée
         if index == 0:
             return True
-        
+
         # Vérifications supplémentaires selon le système
         camera_name = self._get_camera_name(index).lower()
-        
+
         # Mots-clés indiquant une caméra intégrée
         builtin_keywords = [
-            'facetime', 'integrated', 'built-in', 'internal', 
+            'facetime', 'integrated', 'built-in', 'internal',
             'intégrée', 'intégré', 'webcam intégrée', 'hd camera'
         ]
-        
-        # Mots-clés indiquant une caméra externe
+
+        # Mots-clés indiquant DÉFINITIVEMENT une caméra externe (téléphone, etc.)
         external_keywords = [
             'usb', 'external', 'logitech', 'microsoft', 'creative',
-            'externe', 'phone', 'mobile', 'android', 'iphone'
+            'externe', 'phone', 'mobile', 'android', 'iphone', 'continuity',
+            'eab7a68f', 'ec2b', '4487', 'aadf'  # IDs spécifiques aux téléphones
         ]
-        
-        # Vérifier les mots-clés
+
+        # Vérifier les mots-clés externes en PREMIER (priorité)
         for keyword in external_keywords:
             if keyword in camera_name:
                 return False
-                
+
+        # Ensuite vérifier les mots-clés intégrés
         for keyword in builtin_keywords:
             if keyword in camera_name:
                 return True
-        
-        # Par défaut, considérer les indices faibles comme intégrés
-        return index <= 1
+
+        # Par défaut, seul l'index 0 est considéré comme intégré
+        return False
     
     def _calculate_priority(self, index, width, height):
         """
         Calcule la priorité d'une caméra
-        
+
         Args:
             index (int): Index de la caméra
             width (int): Largeur de l'image
             height (int): Hauteur de l'image
-            
+
         Returns:
             int: Score de priorité (plus élevé = plus prioritaire)
         """
         priority = 0
-        
-        # Priorité basée sur le type de caméra
-        if self._is_builtin_camera(index):
-            priority += 1000  # Très haute priorité pour les caméras intégrées
-        
+
+        # PRIORITÉ ABSOLUE : Index 0 (caméra intégrée) a la priorité maximale
+        if index == 0:
+            priority += 10000  # Priorité absolue pour l'index 0
+        elif self._is_builtin_camera(index):
+            priority += 1000  # Haute priorité pour autres caméras intégrées
+        else:
+            # Pénalité pour les caméras externes (téléphones, etc.)
+            priority -= 500
+
         # Priorité basée sur l'index (plus bas = plus prioritaire)
-        priority += (10 - index) * 10
-        
+        priority += (10 - index) * 100  # Augmenté pour plus d'impact
+
         # Priorité basée sur la résolution (résolutions standard privilégiées)
         resolution_score = 0
         if width >= 1280 and height >= 720:  # HD ou mieux
@@ -241,9 +248,9 @@ class CameraManager:
             resolution_score = 30
         else:
             resolution_score = 10
-        
+
         priority += resolution_score
-        
+
         return priority
     
     def get_best_camera(self):

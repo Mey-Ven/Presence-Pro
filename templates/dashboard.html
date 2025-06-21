@@ -195,6 +195,100 @@
     </div>
 </div>
 
+<!-- Facial Recognition Control -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-eye me-2"></i>
+                    Contrôle de Reconnaissance Faciale
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Recognition Status -->
+                    <div class="col-lg-4 mb-3">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                <div id="recognitionStatusIndicator" class="status-indicator bg-secondary"></div>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Statut de Reconnaissance</h6>
+                                <small id="recognitionStatusText" class="text-muted">Inactif</small>
+                            </div>
+                        </div>
+
+                        <!-- Control Buttons -->
+                        <div class="d-grid gap-2">
+                            <button id="startRecognitionBtn" class="btn btn-success" onclick="startRecognition()">
+                                <i class="fas fa-play me-2"></i>
+                                Démarrer Reconnaissance
+                            </button>
+                            <button id="stopRecognitionBtn" class="btn btn-danger" onclick="stopRecognition()" disabled>
+                                <i class="fas fa-stop me-2"></i>
+                                Arrêter Reconnaissance
+                            </button>
+                            <button class="btn btn-warning" onclick="reloadEncodings()">
+                                <i class="fas fa-sync me-2"></i>
+                                Recharger Encodages
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Camera Feed -->
+                    <div class="col-lg-5 mb-3">
+                        <div class="camera-container">
+                            <h6 class="mb-2">Flux Caméra en Direct</h6>
+                            <div id="cameraFeedContainer" class="camera-feed-container">
+                                <div id="cameraPlaceholder" class="camera-placeholder">
+                                    <i class="fas fa-camera fa-3x text-muted mb-2"></i>
+                                    <p class="text-muted mb-0">Caméra non active</p>
+                                </div>
+                                <img id="cameraFeed" class="camera-feed" style="display: none;" alt="Flux caméra">
+                            </div>
+                            <div class="mt-2">
+                                <button class="btn btn-sm btn-outline-primary" onclick="captureScreenshot()">
+                                    <i class="fas fa-camera me-1"></i>
+                                    Capture
+                                </button>
+                                <span id="cameraInfo" class="text-muted ms-2"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recognition Stats -->
+                    <div class="col-lg-3 mb-3">
+                        <h6 class="mb-3">Statistiques en Temps Réel</h6>
+                        <div class="recognition-stats">
+                            <div class="stat-item mb-2">
+                                <small class="text-muted">Visages Connus:</small>
+                                <span id="knownFacesCount" class="fw-bold">0</span>
+                            </div>
+                            <div class="stat-item mb-2">
+                                <small class="text-muted">Images Traitées:</small>
+                                <span id="frameCount" class="fw-bold">0</span>
+                            </div>
+                            <div class="stat-item mb-2">
+                                <small class="text-muted">Dernière Détection:</small>
+                                <span id="lastDetection" class="fw-bold">Aucune</span>
+                            </div>
+                        </div>
+
+                        <!-- Recent Detections -->
+                        <div class="mt-3">
+                            <h6 class="mb-2">Détections Récentes</h6>
+                            <div id="recentDetections" class="recent-detections">
+                                <small class="text-muted">Aucune détection récente</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Quick Actions -->
 <div class="row">
     <div class="col-12">
@@ -220,13 +314,13 @@
                         </a>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <button class="btn btn-warning w-100 py-3" onclick="showComingSoon()">
-                            <i class="fas fa-camera fa-2x mb-2 d-block"></i>
-                            Test Caméra
-                        </button>
+                        <a href="{{ url_for('students') }}" class="btn btn-warning w-100 py-3">
+                            <i class="fas fa-users fa-2x mb-2 d-block"></i>
+                            Gérer Étudiants
+                        </a>
                     </div>
                     <div class="col-lg-3 col-md-6 mb-3">
-                        <button class="btn btn-info w-100 py-3" onclick="showComingSoon()">
+                        <button class="btn btn-info w-100 py-3" onclick="exportData()">
                             <i class="fas fa-download fa-2x mb-2 d-block"></i>
                             Export Données
                         </button>
@@ -254,6 +348,10 @@
 
 {% block extra_js %}
 <script>
+    // Global variables for recognition system
+    let recognitionActive = false;
+    let recentDetections = [];
+
     // Update current time
     function updateTime() {
         const now = new Date();
@@ -267,17 +365,236 @@
         });
         document.getElementById('currentTime').textContent = timeString;
     }
-    
+
     // Update time every minute
     updateTime();
     setInterval(updateTime, 60000);
-    
+
     // Show real-time connection toast
     window.addEventListener('load', function() {
         const toast = new bootstrap.Toast(document.getElementById('liveToast'));
         toast.show();
+
+        // Initialize UI without starting recognition
+        initializeRecognitionUI();
     });
-    
+
+    // Facial Recognition Functions
+    function startRecognition() {
+        const btn = document.getElementById('startRecognitionBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Démarrage...';
+
+        fetch('/api/recognition/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateRecognitionStatus(true);
+                showNotification(data.message, 'success');
+            } else {
+                showNotification(data.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play me-2"></i>Démarrer Reconnaissance';
+            }
+        })
+        .catch(error => {
+            showNotification('Erreur de connexion', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play me-2"></i>Démarrer Reconnaissance';
+        });
+    }
+
+    function stopRecognition() {
+        const btn = document.getElementById('stopRecognitionBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Arrêt...';
+
+        fetch('/api/recognition/stop', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateRecognitionStatus(false);
+                showNotification(data.message, 'success');
+            } else {
+                showNotification(data.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-stop me-2"></i>Arrêter Reconnaissance';
+            }
+        })
+        .catch(error => {
+            showNotification('Erreur de connexion', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-stop me-2"></i>Arrêter Reconnaissance';
+        });
+    }
+
+    function reloadEncodings() {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Rechargement...';
+
+        fetch('/api/recognition/reload', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            showNotification(data.message, data.success ? 'success' : 'error');
+            if (data.success) {
+                loadRecognitionStatus();
+            }
+        })
+        .catch(error => {
+            showNotification('Erreur de connexion', 'error');
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        });
+    }
+
+    function captureScreenshot() {
+        fetch('/api/recognition/screenshot', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            showNotification(data.message, data.success ? 'success' : 'error');
+        })
+        .catch(error => {
+            showNotification('Erreur de connexion', 'error');
+        });
+    }
+
+    function initializeRecognitionUI() {
+        // Initialize UI in stopped state without checking server status
+        console.log('🔧 Initialisation de l\'interface de reconnaissance...');
+        updateRecognitionStatus(false);
+        updateRecognitionStats({
+            known_faces_count: 8, // Show known faces count
+            frame_count: 0,
+            camera_status: 'Déconnectée'
+        });
+        console.log('✅ Interface de reconnaissance initialisée en mode ARRÊTÉ (pas d\'auto-start)');
+    }
+
+    function loadRecognitionStatus() {
+        fetch('/api/recognition/status')
+        .then(response => response.json())
+        .then(data => {
+            updateRecognitionStatus(data.is_running);
+            updateRecognitionStats(data);
+        })
+        .catch(error => {
+            console.log('Erreur lors du chargement du statut:', error);
+        });
+    }
+
+    function updateRecognitionStatus(isRunning) {
+        recognitionActive = isRunning;
+
+        const indicator = document.getElementById('recognitionStatusIndicator');
+        const statusText = document.getElementById('recognitionStatusText');
+        const startBtn = document.getElementById('startRecognitionBtn');
+        const stopBtn = document.getElementById('stopRecognitionBtn');
+        const cameraFeed = document.getElementById('cameraFeed');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+
+        if (isRunning) {
+            indicator.className = 'status-indicator bg-success';
+            statusText.textContent = 'Actif - Reconnaissance en cours';
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<i class="fas fa-check me-2"></i>Reconnaissance Active';
+            stopBtn.disabled = false;
+            stopBtn.innerHTML = '<i class="fas fa-stop me-2"></i>Arrêter Reconnaissance';
+
+            // Show camera feed
+            cameraPlaceholder.style.display = 'none';
+            cameraFeed.style.display = 'block';
+        } else {
+            indicator.className = 'status-indicator bg-secondary';
+            statusText.textContent = 'Inactif';
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="fas fa-play me-2"></i>Démarrer Reconnaissance';
+            stopBtn.disabled = true;
+            stopBtn.innerHTML = '<i class="fas fa-stop me-2"></i>Arrêter Reconnaissance';
+
+            // Hide camera feed
+            cameraFeed.style.display = 'none';
+            cameraPlaceholder.style.display = 'flex';
+        }
+    }
+
+    function updateRecognitionStats(data) {
+        document.getElementById('knownFacesCount').textContent = data.known_faces_count || 0;
+        document.getElementById('frameCount').textContent = data.frame_count || 0;
+
+        const cameraInfo = document.getElementById('cameraInfo');
+        cameraInfo.textContent = `Caméra: ${data.camera_status}`;
+    }
+
+    function exportData() {
+        // Afficher un menu d'options d'export
+        const options = [
+            { text: 'Export Excel (Présences)', url: '/export/attendance/excel' },
+            { text: 'Export CSV (Présences)', url: '/export/attendance/csv' },
+            { text: 'Export CSV (Étudiants)', url: '/export/students/csv' }
+        ];
+
+        let optionsHtml = options.map(option =>
+            `<a href="${option.url}" class="dropdown-item">
+                <i class="fas fa-download me-2"></i>${option.text}
+            </a>`
+        ).join('');
+
+        // Créer un modal temporaire pour les options
+        const modalHtml = `
+            <div class="modal fade" id="exportModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Options d'Export</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="list-group">
+                                ${optionsHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Ajouter le modal au DOM
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Afficher le modal
+        const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+        modal.show();
+
+        // Nettoyer après fermeture
+        document.getElementById('exportModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+
     // Socket.IO real-time updates
     socket.on('attendance_update', function(data) {
         // Update attendance count
@@ -286,16 +603,65 @@
             const currentCount = parseInt(todayCount.textContent);
             todayCount.textContent = currentCount + 1;
         }
-        
+
         // Show notification
         showNotification('Nouvelle présence détectée: ' + data.name, 'success');
     });
-    
-    socket.on('system_status', function(data) {
-        // Update system status indicators
-        updateSystemStatus(data);
+
+    socket.on('attendance_detected', function(data) {
+        // Update last detection
+        const now = new Date();
+        document.getElementById('lastDetection').textContent = now.toLocaleTimeString('fr-FR');
+
+        // Add to recent detections
+        addRecentDetection(data);
+
+        // Update attendance count
+        const todayCount = document.querySelector('.stat-card.success .stat-number');
+        if (todayCount) {
+            const currentCount = parseInt(todayCount.textContent);
+            todayCount.textContent = currentCount + 1;
+        }
+
+        // Show notification with confidence
+        const confidenceText = data.confidence ? ` (${(data.confidence * 100).toFixed(1)}%)` : '';
+        showNotification(`Présence détectée: ${data.name}${confidenceText}`, 'success');
     });
-    
+
+    socket.on('recognition_status', function(data) {
+        showNotification(data.message, data.type || 'info');
+
+        if (data.status) {
+            updateRecognitionStats(data.status);
+        }
+    });
+
+    socket.on('camera_frame', function(data) {
+        if (recognitionActive) {
+            const cameraFeed = document.getElementById('cameraFeed');
+            cameraFeed.src = 'data:image/jpeg;base64,' + data.frame;
+        }
+    });
+
+    function addRecentDetection(data) {
+        recentDetections.unshift(data);
+        if (recentDetections.length > 5) {
+            recentDetections.pop();
+        }
+
+        const container = document.getElementById('recentDetections');
+        if (recentDetections.length === 0) {
+            container.innerHTML = '<small class="text-muted">Aucune détection récente</small>';
+        } else {
+            container.innerHTML = recentDetections.map(detection =>
+                `<div class="detection-item">
+                    <small class="fw-bold">${detection.name}</small>
+                    <small class="text-muted d-block">${detection.time}</small>
+                </div>`
+            ).join('');
+        }
+    }
+
     function showNotification(message, type = 'info') {
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -304,26 +670,17 @@
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        
+
         const container = document.querySelector('.main-content');
         container.insertBefore(alertDiv, container.firstChild);
-        
+
         // Auto-hide after 5 seconds
         setTimeout(() => {
             const alert = new bootstrap.Alert(alertDiv);
             alert.close();
         }, 5000);
     }
-    
-    function updateSystemStatus(status) {
-        // Update camera status
-        const cameraStatus = document.querySelector('.status-item:first-child .badge');
-        if (cameraStatus) {
-            cameraStatus.className = `badge bg-${status.camera ? 'success' : 'danger'}`;
-            cameraStatus.textContent = status.camera ? 'Connectée' : 'Déconnectée';
-        }
-    }
-    
+
     // Refresh stats every 30 seconds
     setInterval(function() {
         fetch('/api/stats')
@@ -337,5 +694,12 @@
             })
             .catch(error => console.log('Erreur lors de la mise à jour des stats:', error));
     }, 30000);
+
+    // Refresh recognition status every 10 seconds
+    setInterval(function() {
+        if (recognitionActive) {
+            loadRecognitionStatus();
+        }
+    }, 10000);
 </script>
 {% endblock %}

@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block title %}Entraînement Facial - {{ student.prenom }} {{ student.nom }} - Presence Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .training-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .training-section {
+        background: white;
+        border-radius: 15px;
+        padding: 2rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .student-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 2rem;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .camera-container {
+        position: relative;
+        background: #000;
+        border-radius: 15px;
+        overflow: hidden;
+        margin: 2rem 0;
+        min-height: 400px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .camera-feed {
+        width: 100%;
+        height: auto;
+        max-height: 500px;
+        object-fit: cover;
+    }
+    
+    .camera-placeholder {
+        color: #6c757d;
+        text-align: center;
+        padding: 3rem;
+    }
+    
+    .capture-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+    }
+    
+    .progress-container {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    .photo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .photo-item {
+        aspect-ratio: 1;
+        background: #e9ecef;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .photo-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .photo-item.captured {
+        border: 3px solid #28a745;
+    }
+    
+    .btn-capture {
+        background: linear-gradient(135deg, #28a745, #20c997);
+        border: none;
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    }
+    
+    .btn-capture:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    }
+    
+    .btn-capture:disabled {
+        background: #6c757d;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .instructions {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 1rem;
+        border-radius: 0 8px 8px 0;
+        margin: 1rem 0;
+    }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    
+    .status-waiting { background: #ffc107; }
+    .status-ready { background: #28a745; }
+    .status-capturing { background: #007bff; }
+    .status-complete { background: #6f42c1; }
+    
+    .countdown {
+        font-size: 3rem;
+        font-weight: bold;
+        color: #007bff;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="training-container">
+        <!-- En-tête étudiant -->
+        <div class="student-info">
+            <h2 class="mb-3">
+                <i class="fas fa-camera me-2"></i>
+                Entraînement Facial
+            </h2>
+            <h3>{{ student.prenom }} {{ student.nom }}</h3>
+            <p class="mb-0">ID: {{ student.id_etudiant }} | Email: {{ student.email }}</p>
+        </div>
+
+        <!-- Instructions -->
+        <div class="training-section">
+            <div class="instructions">
+                <h5><i class="fas fa-info-circle me-2"></i>Instructions</h5>
+                <ul class="mb-0">
+                    <li>Regardez directement la caméra</li>
+                    <li>Gardez votre visage bien éclairé</li>
+                    <li>Évitez les mouvements brusques</li>
+                    <li>15 photos seront prises automatiquement</li>
+                    <li>Variez légèrement l'angle de votre tête entre les prises</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Statut et contrôles -->
+        <div class="training-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <span class="status-indicator status-waiting" id="statusIndicator"></span>
+                    <span id="statusText">En attente de démarrage</span>
+                </div>
+                <div>
+                    <span class="badge bg-primary" id="photoCounter">0/15 photos</span>
+                </div>
+            </div>
+
+            <!-- Conteneur caméra -->
+            <div class="camera-container">
+                <video id="cameraFeed" class="camera-feed" autoplay muted style="display: none;"></video>
+                <div id="cameraPlaceholder" class="camera-placeholder">
+                    <i class="fas fa-camera fa-3x mb-3"></i>
+                    <h5>Caméra non initialisée</h5>
+                    <p>Cliquez sur "Démarrer l'entraînement" pour commencer</p>
+                </div>
+                <div id="captureOverlay" class="capture-overlay">
+                    <div class="countdown" id="countdown"></div>
+                    <p>Préparation de la capture...</p>
+                </div>
+            </div>
+
+            <!-- Barre de progression -->
+            <div class="progress-container">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>Progression de l'entraînement</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress">
+                    <div class="progress-bar" id="progressBar" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Contrôles -->
+            <div class="text-center mt-4">
+                <button id="startTrainingBtn" class="btn btn-capture me-3">
+                    <i class="fas fa-play me-2"></i>
+                    Démarrer l'entraînement
+                </button>
+                <button id="stopTrainingBtn" class="btn btn-danger" style="display: none;">
+                    <i class="fas fa-stop me-2"></i>
+                    Arrêter
+                </button>
+                <a href="{{ url_for('students') }}" class="btn btn-secondary ms-3">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Retour
+                </a>
+            </div>
+        </div>
+
+        <!-- Grille des photos capturées -->
+        <div class="training-section">
+            <h5><i class="fas fa-images me-2"></i>Photos capturées</h5>
+            <div class="photo-grid" id="photoGrid">
+                <!-- Les photos apparaîtront ici -->
+            </div>
+        </div>
+
+        <!-- Messages de statut -->
+        <div id="messageContainer"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let trainingActive = false;
+let photoCount = 0;
+let maxPhotos = 15;
+let captureInterval;
+let stream;
+
+// Éléments DOM
+const startBtn = document.getElementById('startTrainingBtn');
+const stopBtn = document.getElementById('stopTrainingBtn');
+const cameraFeed = document.getElementById('cameraFeed');
+const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+const captureOverlay = document.getElementById('captureOverlay');
+const statusIndicator = document.getElementById('statusIndicator');
+const statusText = document.getElementById('statusText');
+const photoCounter = document.getElementById('photoCounter');
+const progressBar = document.getElementById('progressBar');
+const progressPercent = document.getElementById('progressPercent');
+const photoGrid = document.getElementById('photoGrid');
+const countdown = document.getElementById('countdown');
+
+// Initialiser la grille de photos
+function initializePhotoGrid() {
+    photoGrid.innerHTML = '';
+    for (let i = 0; i < maxPhotos; i++) {
+        const photoItem = document.createElement('div');
+        photoItem.className = 'photo-item';
+        photoItem.innerHTML = `<i class="fas fa-camera text-muted"></i>`;
+        photoItem.id = `photo-${i}`;
+        photoGrid.appendChild(photoItem);
+    }
+}
+
+// Démarrer la caméra
+async function startCamera() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: 'user'
+            } 
+        });
+        
+        cameraFeed.srcObject = stream;
+        cameraFeed.style.display = 'block';
+        cameraPlaceholder.style.display = 'none';
+        
+        updateStatus('ready', 'Caméra prête - Cliquez pour commencer');
+        return true;
+    } catch (error) {
+        console.error('Erreur caméra:', error);
+        showMessage('Erreur: Impossible d\'accéder à la caméra', 'error');
+        return false;
+    }
+}
+
+// Arrêter la caméra
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+    cameraFeed.style.display = 'none';
+    cameraPlaceholder.style.display = 'flex';
+}
+
+// Capturer une photo
+async function capturePhoto() {
+    try {
+        // Afficher l'overlay de capture
+        captureOverlay.style.display = 'flex';
+        
+        // Compte à rebours
+        for (let i = 3; i > 0; i--) {
+            countdown.textContent = i;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        countdown.textContent = '📸';
+        
+        // Capturer l'image
+        const canvas = document.createElement('canvas');
+        canvas.width = cameraFeed.videoWidth;
+        canvas.height = cameraFeed.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(cameraFeed, 0, 0);
+        
+        // Convertir en blob
+        canvas.toBlob(async (blob) => {
+            const formData = new FormData();
+            formData.append('photo', blob, `photo_${photoCount}.jpg`);
+            formData.append('student_id', '{{ student.id_etudiant }}');
+            formData.append('photo_index', photoCount);
+            
+            try {
+                const response = await fetch('/api/training/capture-photo', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Marquer la photo comme capturée
+                    const photoItem = document.getElementById(`photo-${photoCount}`);
+                    photoItem.innerHTML = `<img src="${canvas.toDataURL()}" alt="Photo ${photoCount + 1}">`;
+                    photoItem.classList.add('captured');
+                    
+                    photoCount++;
+                    updateProgress();
+                    
+                    if (photoCount >= maxPhotos) {
+                        await completeTraining();
+                    }
+                } else {
+                    showMessage(`Erreur capture: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                showMessage('Erreur lors de l\'envoi de la photo', 'error');
+            }
+            
+            // Masquer l'overlay
+            captureOverlay.style.display = 'none';
+        }, 'image/jpeg', 0.8);
+        
+    } catch (error) {
+        console.error('Erreur capture:', error);
+        captureOverlay.style.display = 'none';
+        showMessage('Erreur lors de la capture', 'error');
+    }
+}
+
+// Démarrer l'entraînement
+async function startTraining() {
+    if (trainingActive) return;
+    
+    const cameraStarted = await startCamera();
+    if (!cameraStarted) return;
+    
+    trainingActive = true;
+    photoCount = 0;
+    
+    startBtn.style.display = 'none';
+    stopBtn.style.display = 'inline-block';
+    
+    updateStatus('capturing', 'Entraînement en cours...');
+    updateProgress();
+    
+    // Démarrer la capture automatique
+    captureInterval = setInterval(async () => {
+        if (photoCount < maxPhotos && trainingActive) {
+            await capturePhoto();
+        }
+    }, 3000); // Une photo toutes les 3 secondes
+}
+
+// Arrêter l'entraînement
+function stopTraining() {
+    trainingActive = false;
+    
+    if (captureInterval) {
+        clearInterval(captureInterval);
+        captureInterval = null;
+    }
+    
+    stopCamera();
+    
+    startBtn.style.display = 'inline-block';
+    stopBtn.style.display = 'none';
+    
+    updateStatus('waiting', 'Entraînement arrêté');
+}
+
+// Terminer l'entraînement
+async function completeTraining() {
+    trainingActive = false;
+    
+    if (captureInterval) {
+        clearInterval(captureInterval);
+        captureInterval = null;
+    }
+    
+    updateStatus('complete', 'Génération des encodages...');
+    
+    try {
+        const response = await fetch('/api/training/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ student_id: '{{ student.id_etudiant }}' })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showMessage('Entraînement terminé avec succès!', 'success');
+            updateStatus('complete', 'Entraînement terminé');
+            
+            // Rediriger après 3 secondes
+            setTimeout(() => {
+                window.location.href = '{{ url_for("students") }}';
+            }, 3000);
+        } else {
+            showMessage(`Erreur: ${result.message}`, 'error');
+        }
+    } catch (error) {
+        showMessage('Erreur lors de la finalisation', 'error');
+    }
+    
+    stopBtn.style.display = 'none';
+    startBtn.style.display = 'inline-block';
+}
+
+// Mettre à jour le statut
+function updateStatus(status, text) {
+    statusIndicator.className = `status-indicator status-${status}`;
+    statusText.textContent = text;
+}
+
+// Mettre à jour la progression
+function updateProgress() {
+    const percent = Math.round((photoCount / maxPhotos) * 100);
+    progressBar.style.width = `${percent}%`;
+    progressPercent.textContent = `${percent}%`;
+    photoCounter.textContent = `${photoCount}/${maxPhotos} photos`;
+}
+
+// Afficher un message
+function showMessage(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.getElementById('messageContainer').appendChild(alertDiv);
+    
+    // Auto-hide après 5 secondes
+    setTimeout(() => {
+        alertDiv.remove();
+    }, 5000);
+}
+
+// Event listeners
+startBtn.addEventListener('click', startTraining);
+stopBtn.addEventListener('click', stopTraining);
+
+// Initialisation
+document.addEventListener('DOMContentLoaded', function() {
+    initializePhotoGrid();
+    updateProgress();
+});
+
+// Nettoyage à la fermeture
+window.addEventListener('beforeunload', function() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+});
+</script>
+{% endblock %}

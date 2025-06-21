@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block title %}Modifier Étudiant - Presence Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .form-section {
+        background: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+    
+    .section-title {
+        color: #2c3e50;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-control {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 0.75rem;
+        transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+    }
+    
+    .alert {
+        border-radius: 8px;
+        border: none;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .student-info {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .info-value {
+        color: #2c3e50;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-user-edit text-primary me-2"></i>
+                        Modifier Étudiant
+                    </h2>
+                    <p class="text-muted mb-0">Modifier les informations de l'étudiant</p>
+                </div>
+                <a href="{{ url_for('students') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Retour à la liste
+                </a>
+            </div>
+
+            <!-- Messages Flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show">
+                            <i class="fas fa-{{ 'exclamation-triangle' if category == 'error' else 'check-circle' }} me-2"></i>
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="form-container">
+                <!-- Informations actuelles -->
+                <div class="form-section">
+                    <h4 class="section-title">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informations Actuelles
+                    </h4>
+                    
+                    <div class="student-info">
+                        <div class="info-item">
+                            <span class="info-label">ID Étudiant:</span>
+                            <span class="info-value">{{ student.id_etudiant }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Nom complet:</span>
+                            <span class="info-value">{{ student.prenom }} {{ student.nom }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">{{ student.email }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Téléphone:</span>
+                            <span class="info-value">{{ student.telephone or 'Non renseigné' }}</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Date de création:</span>
+                            <span class="info-value">{{ student.date_creation }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formulaire de modification -->
+                <div class="form-section">
+                    <h4 class="section-title">
+                        <i class="fas fa-edit me-2"></i>
+                        Modifier les Informations
+                    </h4>
+                    
+                    <form method="POST" id="editStudentForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="nom" class="form-label">
+                                        <i class="fas fa-user me-1"></i>
+                                        Nom *
+                                    </label>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="nom" 
+                                           name="nom" 
+                                           value="{{ student.nom }}"
+                                           required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="prenom" class="form-label">
+                                        <i class="fas fa-user me-1"></i>
+                                        Prénom *
+                                    </label>
+                                    <input type="text" 
+                                           class="form-control" 
+                                           id="prenom" 
+                                           name="prenom" 
+                                           value="{{ student.prenom }}"
+                                           required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope me-1"></i>
+                                Email *
+                            </label>
+                            <input type="email" 
+                                   class="form-control" 
+                                   id="email" 
+                                   name="email" 
+                                   value="{{ student.email }}"
+                                   required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="telephone" class="form-label">
+                                <i class="fas fa-phone me-1"></i>
+                                Téléphone
+                            </label>
+                            <input type="tel" 
+                                   class="form-control" 
+                                   id="telephone" 
+                                   name="telephone" 
+                                   value="{{ student.telephone or '' }}"
+                                   placeholder="+33 1 23 45 67 89">
+                        </div>
+                        
+                        <div class="d-flex gap-3 justify-content-end">
+                            <a href="{{ url_for('students') }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Enregistrer les modifications
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Validation du formulaire
+    document.getElementById('editStudentForm').addEventListener('submit', function(e) {
+        const nom = document.getElementById('nom').value.trim();
+        const prenom = document.getElementById('prenom').value.trim();
+        const email = document.getElementById('email').value.trim();
+        
+        if (!nom || !prenom || !email) {
+            e.preventDefault();
+            alert('Veuillez remplir tous les champs obligatoires (*)');
+            return false;
+        }
+        
+        // Validation email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            e.preventDefault();
+            alert('Veuillez entrer une adresse email valide');
+            return false;
+        }
+        
+        return true;
+    });
+    
+    // Auto-format du téléphone
+    document.getElementById('telephone').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.startsWith('33')) {
+            value = '+' + value;
+        } else if (value.startsWith('0')) {
+            value = '+33' + value.substring(1);
+        }
+        e.target.value = value;
+    });
+</script>
+{% endblock %}

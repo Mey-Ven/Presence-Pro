@@ -185,6 +185,9 @@
         }
     </style>
 
+    <!-- Recognition System CSS -->
+    <link href="{{ url_for('static', filename='css/recognition.css') }}" rel="stylesheet">
+
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -239,19 +242,19 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="showComingSoon()">
+                            <a class="nav-link" href="{{ url_for('dashboard') }}#recognition-control">
                                 <i class="fas fa-camera"></i>
                                 Reconnaissance Faciale
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="showComingSoon()">
+                            <a class="nav-link" href="{{ url_for('reports') }}">
                                 <i class="fas fa-chart-bar"></i>
                                 Rapports & Analytics
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="showComingSoon()">
+                            <a class="nav-link" href="{{ url_for('settings') }}">
                                 <i class="fas fa-cogs"></i>
                                 Administration
                             </a>

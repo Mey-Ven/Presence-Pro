@@ -7,7 +7,8 @@ import signal
 import sys
 from datetime import datetime
 import csv
-import sqlite_config as firebase_config
+import sqlite_database as db
+import sqlite_config as config
 from camera_manager import CameraManager
 
 # Fonction pour gérer l'interruption par Ctrl+C
@@ -93,9 +94,10 @@ try:
     except:
         print("Impossible de régler la résolution de la caméra")
 
-    # Initialiser Firebase
-    print("Initialisation de Firebase...")
-    firebase_initialized = firebase_config.initialize_firebase()
+    # Initialiser la base de données SQLite
+    print("Initialisation de la base de données SQLite...")
+    db.initialize_database()
+    database_initialized = True
 
     # Gérer le fichier de présence
     attendance_file = "attendance.csv"
@@ -222,10 +224,10 @@ try:
                                 date_str = now.strftime("%Y-%m-%d")
                                 time_str = now.strftime("%H:%M:%S")
 
-                                # Vérifier si la personne est déjà marquée présente aujourd'hui dans Firebase
-                                already_present_in_firebase = False
-                                if firebase_initialized:
-                                    already_present_in_firebase = firebase_config.is_present_today(name, date_str)
+                                # Vérifier si la personne est déjà marquée présente aujourd'hui dans la base de données
+                                already_present_in_db = False
+                                if database_initialized:
+                                    already_present_in_db = config.is_already_present(name, date_str)
 
                                 # Vérifier si la personne est déjà marquée présente aujourd'hui dans le CSV
                                 today_present_in_csv = False
@@ -241,7 +243,7 @@ try:
                                     pass
 
                                 # Si la personne n'est pas déjà marquée présente
-                                if not (today_present_in_csv or already_present_in_firebase):
+                                if not (today_present_in_csv or already_present_in_db):
                                     # Enregistrer dans le fichier CSV
                                     try:
                                         with open(attendance_file, "a", newline="") as f:
@@ -254,19 +256,19 @@ try:
                                     except Exception as e:
                                         print(f"ERREUR lors de l'enregistrement de la présence dans CSV: {e}")
 
-                                    # Enregistrer dans Firebase
-                                    if firebase_initialized:
+                                    # Enregistrer dans la base de données SQLite
+                                    if database_initialized:
                                         try:
-                                            firebase_config.add_attendance(name, date_str, time_str)
-                                            print(f"{name} marqué présent à {time_str} et enregistré dans Firebase")
+                                            db.ajouter_presence(name, date_str, time_str)
+                                            print(f"{name} marqué présent à {time_str} et enregistré dans la base de données")
                                         except Exception as e:
-                                            print(f"ERREUR lors de l'enregistrement dans Firebase: {e}")
-                                            print(f"{name} détecté mais non enregistré dans Firebase en raison d'une erreur.")
+                                            print(f"ERREUR lors de l'enregistrement dans la base de données: {e}")
+                                            print(f"{name} détecté mais non enregistré dans la base de données en raison d'une erreur.")
                                     else:
-                                        print(f"{name} marqué présent à {time_str} (Firebase non initialisé)")
+                                        print(f"{name} marqué présent à {time_str} (Base de données non initialisée)")
                                 else:
-                                    if already_present_in_firebase:
-                                        print(f"{name} déjà marqué présent aujourd'hui dans Firebase")
+                                    if already_present_in_db:
+                                        print(f"{name} déjà marqué présent aujourd'hui dans la base de données")
                                     else:
                                         print(f"{name} déjà marqué présent aujourd'hui dans CSV")
 

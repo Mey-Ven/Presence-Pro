@@ -64,23 +64,36 @@ def add_attendance(name, date, time):
 def is_present_today(name, date):
     """
     Vérifie si une personne est déjà marquée présente aujourd'hui
-    
+
     Args:
         name (str): Nom de la personne
         date (str): Date au format YYYY-MM-DD
-        
+
     Returns:
         bool: True si présent, False sinon
     """
     try:
         # Normaliser le nom pour assurer la cohérence
         normalized_name = normalize_name(name)
-        
+
         # Vérifier la présence
         return db.est_present_aujourd_hui(normalized_name, date)
     except Exception as e:
         print(f"Erreur lors de la vérification de l'enregistrement de présence dans SQLite : {e}")
         return False
+
+def is_already_present(name, date):
+    """
+    Alias pour is_present_today pour compatibilité avec le contrôleur de reconnaissance
+
+    Args:
+        name (str): Nom de la personne
+        date (str): Date au format YYYY-MM-DD
+
+    Returns:
+        bool: True si présent, False sinon
+    """
+    return is_present_today(name, date)
 
 def get_all_attendance():
     """

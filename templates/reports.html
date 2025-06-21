@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Rapports et Analytics - Système de Reconnaissance Faciale{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="fas fa-chart-bar me-2"></i>
+        Rapports et Analytics
+    </h1>
+    <div class="btn-group">
+        <button class="btn btn-outline-primary" onclick="refreshCharts()">
+            <i class="fas fa-sync me-1"></i>
+            Actualiser
+        </button>
+        <button class="btn btn-outline-success" onclick="exportReport()">
+            <i class="fas fa-download me-1"></i>
+            Exporter
+        </button>
+    </div>
+</div>
+
+<!-- Statistics Overview -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card info">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ stats.total_attendance }}</div>
+                    <div class="stat-label">Total Présences</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-calendar-check fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card success">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ stats.week_attendance }}</div>
+                    <div class="stat-label">Cette Semaine</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card warning">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ "%.1f"|format(stats.avg_daily) }}</div>
+                    <div class="stat-label">Moyenne Quotidienne</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-calculator fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card danger">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ "%.1f"|format(stats.attendance_rate) }}%</div>
+                    <div class="stat-label">Taux de Présence</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-percentage fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>
+                    Évolution des Présences
+                </h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary active" onclick="updateDailyChart(7)">7j</button>
+                    <button class="btn btn-outline-primary" onclick="updateDailyChart(30)">30j</button>
+                    <button class="btn btn-outline-primary" onclick="updateDailyChart(90)">90j</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <canvas id="dailyChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-trophy me-2"></i>
+                    Top Étudiants
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if top_students %}
+                    <div class="list-group list-group-flush">
+                        {% for name, count in top_students %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <div>
+                                <i class="fas fa-user-circle me-2 text-primary"></i>
+                                {{ name }}
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Aucune donnée disponible</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="row mb-4">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Présences par Heure
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="hourlyChart" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-calendar-week me-2"></i>
+                    Présences par Jour de la Semaine
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="weekdayChart" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Analytics -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-table me-2"></i>
+                    Analyse Détaillée
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 mb-3">
+                            <h6 class="text-primary">Tendances</h6>
+                            <ul class="list-unstyled mb-0">
+                                <li><i class="fas fa-arrow-up text-success me-2"></i>Pic d'activité: 9h-11h</li>
+                                <li><i class="fas fa-calendar-day text-info me-2"></i>Jour le plus actif: Mardi</li>
+                                <li><i class="fas fa-chart-line text-warning me-2"></i>Tendance: Stable</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 mb-3">
+                            <h6 class="text-success">Performance</h6>
+                            <ul class="list-unstyled mb-0">
+                                <li><i class="fas fa-percentage text-success me-2"></i>Taux de présence: {{ "%.1f"|format(stats.attendance_rate) }}%</li>
+                                <li><i class="fas fa-users text-info me-2"></i>Étudiants actifs: {{ stats.total_students }}</li>
+                                <li><i class="fas fa-calendar-check text-warning me-2"></i>Régularité: Bonne</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 mb-3">
+                            <h6 class="text-info">Recommandations</h6>
+                            <ul class="list-unstyled mb-0">
+                                <li><i class="fas fa-lightbulb text-warning me-2"></i>Optimiser les heures creuses</li>
+                                <li><i class="fas fa-bell text-info me-2"></i>Rappels automatiques</li>
+                                <li><i class="fas fa-chart-bar text-success me-2"></i>Suivi personnalisé</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Variables globales pour les graphiques
+    let dailyChart, hourlyChart, weekdayChart;
+    
+    // Données des graphiques depuis le serveur
+    const chartData = {{ chart_data | tojson }};
+    
+    // Initialiser les graphiques
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeCharts();
+    });
+    
+    function initializeCharts() {
+        // Graphique des présences quotidiennes
+        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+        dailyChart = new Chart(dailyCtx, {
+            type: 'line',
+            data: {
+                labels: chartData.daily_labels,
+                datasets: [{
+                    label: 'Présences',
+                    data: chartData.daily_values,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Graphique des présences par heure
+        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+        hourlyChart = new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.hourly_labels,
+                datasets: [{
+                    label: 'Présences',
+                    data: chartData.hourly_values,
+                    backgroundColor: 'rgba(46, 204, 113, 0.8)',
+                    borderColor: '#2ecc71',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Graphique des présences par jour de la semaine
+        const weekdayCtx = document.getElementById('weekdayChart').getContext('2d');
+        weekdayChart = new Chart(weekdayCtx, {
+            type: 'doughnut',
+            data: {
+                labels: chartData.weekday_labels,
+                datasets: [{
+                    data: chartData.weekday_values,
+                    backgroundColor: [
+                        '#e74c3c', '#f39c12', '#f1c40f', '#2ecc71',
+                        '#3498db', '#9b59b6', '#e67e22'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateDailyChart(days) {
+        // Mettre à jour le graphique quotidien
+        fetch(`/api/reports/data?type=daily&days=${days}`)
+            .then(response => response.json())
+            .then(data => {
+                dailyChart.data.labels = data.labels;
+                dailyChart.data.datasets[0].data = data.values;
+                dailyChart.update();
+                
+                // Mettre à jour le bouton actif
+                document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            })
+            .catch(error => {
+                console.error('Erreur lors de la mise à jour du graphique:', error);
+                showNotification('Erreur lors de la mise à jour du graphique', 'error');
+            });
+    }
+    
+    function refreshCharts() {
+        // Actualiser tous les graphiques
+        location.reload();
+    }
+    
+    function exportReport() {
+        // Exporter le rapport
+        window.open('/export/attendance/excel', '_blank');
+    }
+    
+    function showNotification(message, type = 'info') {
+        // Afficher une notification
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Auto-hide après 5 secondes
+        setTimeout(() => {
+            const alert = new bootstrap.Alert(alertDiv);
+            alert.close();
+        }, 5000);
+    }
+</script>
+{% endblock %}

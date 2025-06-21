@@ -10,7 +10,9 @@ from werkzeug.utils import secure_filename
 import sqlite_database as db
 import facial_training_module as ftm
 import sqlite_config as config
+import facial_recognition_controller as frc
 import os
+import sys
 import json
 import csv
 import io
@@ -38,6 +40,9 @@ ADMIN_PASSWORD_HASH = generate_password_hash("admin123")  # Changez ce mot de pa
 
 # Initialiser la base de données
 db.initialize_database()
+
+# Initialiser le contrôleur de reconnaissance faciale
+recognition_controller = frc.get_recognition_controller(socketio)
 
 def require_auth(f):
     """Décorateur pour vérifier l'authentification"""
@@ -420,6 +425,805 @@ def attendance():
         flash(f'Erreur lors du chargement des présences: {str(e)}', 'error')
         return render_template('attendance.html', attendance_records=[], date_filter='', student_filter='')
 
+# Routes pour le contrôle de la reconnaissance faciale
+
+@app.route('/api/recognition/start', methods=['POST'])
+@require_auth
+def start_recognition():
+    """Démarre le système de reconnaissance faciale"""
+    try:
+        success = recognition_controller.start_recognition()
+        return jsonify({
+            'success': success,
+            'message': 'Reconnaissance faciale démarrée' if success else 'Erreur lors du démarrage'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+@app.route('/api/recognition/stop', methods=['POST'])
+@require_auth
+def stop_recognition():
+    """Arrête le système de reconnaissance faciale"""
+    try:
+        success = recognition_controller.stop_recognition()
+        return jsonify({
+            'success': success,
+            'message': 'Reconnaissance faciale arrêtée' if success else 'Erreur lors de l\'arrêt'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+@app.route('/api/recognition/status')
+@require_auth
+def recognition_status():
+    """Retourne le statut du système de reconnaissance faciale"""
+    try:
+        status = recognition_controller.get_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({
+            'error': f'Erreur: {str(e)}'
+        }), 500
+
+@app.route('/api/recognition/reload', methods=['POST'])
+@require_auth
+def reload_encodings():
+    """Recharge les encodages faciaux"""
+    try:
+        success = recognition_controller.reload_encodings()
+        return jsonify({
+            'success': success,
+            'message': 'Encodages rechargés' if success else 'Erreur lors du rechargement'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+@app.route('/api/recognition/screenshot', methods=['POST'])
+@require_auth
+def capture_screenshot():
+    """Capture une capture d'écran de la caméra"""
+    try:
+        filename = recognition_controller.capture_screenshot()
+        return jsonify({
+            'success': filename is not None,
+            'filename': filename,
+            'message': f'Capture sauvegardée: {filename}' if filename else 'Erreur lors de la capture'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+# Routes pour l'export de données
+
+@app.route('/export/attendance/csv')
+@require_auth
+def export_attendance_csv():
+    """Exporter les données de présence en CSV"""
+    try:
+        # Récupérer toutes les présences
+        all_attendance = config.get_all_attendance()
+
+        # Créer un fichier CSV en mémoire
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # En-têtes
+        writer.writerow(['Nom', 'Date', 'Heure', 'Timestamp'])
+
+        # Données
+        for record in all_attendance:
+            writer.writerow([
+                record.get('name', ''),
+                record.get('date', ''),
+                record.get('time', ''),
+                record.get('timestamp', '')
+            ])
+
+        # Préparer la réponse
+        output.seek(0)
+
+        # Créer le nom de fichier avec timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"presences_{timestamp}.csv"
+
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        flash(f'Erreur lors de l\'export CSV: {str(e)}', 'error')
+        return redirect(url_for('attendance'))
+
+@app.route('/export/attendance/excel')
+@require_auth
+def export_attendance_excel():
+    """Exporter les données de présence en Excel"""
+    try:
+        # Récupérer toutes les présences
+        all_attendance = config.get_all_attendance()
+
+        # Créer un DataFrame pandas
+        df = pd.DataFrame(all_attendance)
+
+        # Réorganiser les colonnes
+        if not df.empty:
+            df = df[['name', 'date', 'time', 'timestamp']]
+            df.columns = ['Nom', 'Date', 'Heure', 'Timestamp']
+
+        # Créer un fichier Excel en mémoire
+        output = io.BytesIO()
+
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Présences', index=False)
+
+            # Ajouter des statistiques sur une autre feuille
+            stats_data = {
+                'Métrique': [
+                    'Total des présences',
+                    'Nombre d\'étudiants uniques',
+                    'Présences aujourd\'hui',
+                    'Date d\'export'
+                ],
+                'Valeur': [
+                    len(all_attendance),
+                    len(set(record.get('name', '') for record in all_attendance)),
+                    len([r for r in all_attendance if r.get('date', '') == datetime.now().strftime("%Y-%m-%d")]),
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ]
+            }
+
+            stats_df = pd.DataFrame(stats_data)
+            stats_df.to_excel(writer, sheet_name='Statistiques', index=False)
+
+        output.seek(0)
+
+        # Créer le nom de fichier avec timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"presences_{timestamp}.xlsx"
+
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        flash(f'Erreur lors de l\'export Excel: {str(e)}', 'error')
+        return redirect(url_for('attendance'))
+
+@app.route('/export/students/csv')
+@require_auth
+def export_students_csv():
+    """Exporter la liste des étudiants en CSV"""
+    try:
+        # Récupérer tous les étudiants
+        students = db.obtenir_tous_etudiants()
+
+        # Créer un fichier CSV en mémoire
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # En-têtes
+        writer.writerow(['ID Étudiant', 'Nom', 'Prénom', 'Email', 'Téléphone', 'Date Création'])
+
+        # Données
+        for student in students:
+            writer.writerow([
+                student.get('id_etudiant', ''),
+                student.get('nom', ''),
+                student.get('prenom', ''),
+                student.get('email', ''),
+                student.get('telephone', ''),
+                student.get('date_creation', '')
+            ])
+
+        # Préparer la réponse
+        output.seek(0)
+
+        # Créer le nom de fichier avec timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"etudiants_{timestamp}.csv"
+
+        return send_file(
+            io.BytesIO(output.getvalue().encode('utf-8')),
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+        flash(f'Erreur lors de l\'export CSV des étudiants: {str(e)}', 'error')
+        return redirect(url_for('students'))
+
+# Routes pour les paramètres et configuration
+
+@app.route('/settings')
+@require_auth
+def settings():
+    """Page de paramètres et configuration"""
+    try:
+        # Récupérer les informations système
+        system_info = {
+            'database_size': os.path.getsize('attendance.db') if os.path.exists('attendance.db') else 0,
+            'encodings_exist': os.path.exists('encodings.pickle'),
+            'dataset_size': sum(len(files) for _, _, files in os.walk('dataset')) if os.path.exists('dataset') else 0,
+            'total_students': len(db.obtenir_tous_etudiants()),
+            'total_attendance': len(config.get_all_attendance()),
+            'python_version': f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            'flask_version': '2.0+',
+            'opencv_version': cv2.__version__ if 'cv2' in globals() else 'Non disponible'
+        }
+
+        # Configuration actuelle
+        current_config = {
+            'admin_username': ADMIN_USERNAME,
+            'recognition_cooldown': getattr(recognition_controller, 'recognition_cooldown', 30),
+            'camera_resolution': '640x480',
+            'frame_skip': 2,
+            'confidence_threshold': 0.6
+        }
+
+        return render_template('settings.html',
+                             system_info=system_info,
+                             current_config=current_config)
+
+    except Exception as e:
+        flash(f'Erreur lors du chargement des paramètres: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
+
+@app.route('/settings/update', methods=['POST'])
+@require_auth
+def update_settings():
+    """Mettre à jour les paramètres système"""
+    try:
+        # Récupérer les données du formulaire
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        recognition_cooldown = request.form.get('recognition_cooldown', type=int)
+
+        # Validation
+        if new_password and new_password != confirm_password:
+            flash('Les mots de passe ne correspondent pas', 'error')
+            return redirect(url_for('settings'))
+
+        # Mettre à jour le mot de passe admin si fourni
+        if new_password and len(new_password) >= 6:
+            global ADMIN_PASSWORD_HASH
+            ADMIN_PASSWORD_HASH = generate_password_hash(new_password)
+            flash('Mot de passe administrateur mis à jour avec succès', 'success')
+
+        # Mettre à jour les paramètres de reconnaissance
+        if recognition_cooldown and 5 <= recognition_cooldown <= 300:
+            recognition_controller.recognition_cooldown = recognition_cooldown
+            flash(f'Délai de reconnaissance mis à jour: {recognition_cooldown}s', 'success')
+
+        return redirect(url_for('settings'))
+
+    except Exception as e:
+        flash(f'Erreur lors de la mise à jour: {str(e)}', 'error')
+        return redirect(url_for('settings'))
+
+@app.route('/settings/backup')
+@require_auth
+def backup_database():
+    """Créer une sauvegarde de la base de données"""
+    try:
+        if not os.path.exists('attendance.db'):
+            flash('Base de données non trouvée', 'error')
+            return redirect(url_for('settings'))
+
+        # Créer le nom de fichier de sauvegarde
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"backup_attendance_{timestamp}.db"
+
+        # Copier la base de données
+        shutil.copy2('attendance.db', backup_filename)
+
+        # Envoyer le fichier
+        return send_file(
+            backup_filename,
+            as_attachment=True,
+            download_name=backup_filename,
+            mimetype='application/octet-stream'
+        )
+
+    except Exception as e:
+        flash(f'Erreur lors de la sauvegarde: {str(e)}', 'error')
+        return redirect(url_for('settings'))
+
+@app.route('/settings/regenerate-encodings', methods=['POST'])
+@require_auth
+def regenerate_encodings():
+    """Régénérer tous les encodages faciaux"""
+    try:
+        # Importer le module d'encodage
+        import encode_faces
+
+        # Régénérer les encodages
+        encode_faces.main()
+
+        # Recharger les encodages dans le contrôleur
+        recognition_controller.reload_encodings()
+
+        flash('Encodages faciaux régénérés avec succès', 'success')
+
+    except Exception as e:
+        flash(f'Erreur lors de la régénération: {str(e)}', 'error')
+
+    return redirect(url_for('settings'))
+
+@app.route('/settings/clear-attendance', methods=['POST'])
+@require_auth
+def clear_attendance():
+    """Effacer toutes les données de présence (avec confirmation)"""
+    try:
+        confirmation = request.form.get('confirmation')
+        if confirmation != 'SUPPRIMER':
+            flash('Confirmation incorrecte. Tapez "SUPPRIMER" pour confirmer', 'error')
+            return redirect(url_for('settings'))
+
+        # Effacer toutes les présences
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM presences')
+        conn.commit()
+        conn.close()
+
+        flash('Toutes les données de présence ont été supprimées', 'warning')
+
+    except Exception as e:
+        flash(f'Erreur lors de la suppression: {str(e)}', 'error')
+
+    return redirect(url_for('settings'))
+
+# Routes pour les rapports et analytics
+
+@app.route('/reports')
+@require_auth
+def reports():
+    """Page de rapports et analytics"""
+    try:
+        # Récupérer toutes les données
+        all_attendance = config.get_all_attendance()
+        all_students = db.obtenir_tous_etudiants()
+
+        # Statistiques générales
+        total_attendance = len(all_attendance)
+        total_students = len(all_students)
+
+        # Présences par jour (derniers 30 jours)
+        from collections import defaultdict
+        daily_stats = defaultdict(int)
+
+        # Calculer les présences par jour
+        for record in all_attendance:
+            date = record.get('date', '')
+            if date:
+                daily_stats[date] += 1
+
+        # Présences par étudiant
+        student_stats = defaultdict(int)
+        for record in all_attendance:
+            name = record.get('name', '')
+            if name:
+                student_stats[name] += 1
+
+        # Top 10 étudiants les plus présents
+        top_students = sorted(student_stats.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # Présences par heure
+        hourly_stats = defaultdict(int)
+        for record in all_attendance:
+            time_str = record.get('time', '')
+            if time_str:
+                try:
+                    hour = int(time_str.split(':')[0])
+                    hourly_stats[hour] += 1
+                except:
+                    pass
+
+        # Présences par jour de la semaine
+        import calendar
+        weekday_stats = defaultdict(int)
+        for record in all_attendance:
+            date_str = record.get('date', '')
+            if date_str:
+                try:
+                    date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                    weekday = calendar.day_name[date_obj.weekday()]
+                    weekday_stats[weekday] += 1
+                except:
+                    pass
+
+        # Préparer les données pour les graphiques
+        chart_data = {
+            'daily_labels': list(sorted(daily_stats.keys()))[-30:],  # 30 derniers jours
+            'daily_values': [daily_stats[date] for date in sorted(daily_stats.keys())[-30:]],
+            'student_labels': [name for name, _ in top_students],
+            'student_values': [count for _, count in top_students],
+            'hourly_labels': [f"{hour}:00" for hour in range(24)],
+            'hourly_values': [hourly_stats[hour] for hour in range(24)],
+            'weekday_labels': ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+            'weekday_values': [weekday_stats[day] for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']]
+        }
+
+        # Statistiques récentes (7 derniers jours)
+        week_ago = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        recent_attendance = [a for a in all_attendance if a.get('date', '') >= week_ago]
+
+        stats = {
+            'total_attendance': total_attendance,
+            'total_students': total_students,
+            'week_attendance': len(recent_attendance),
+            'avg_daily': len(recent_attendance) / 7 if recent_attendance else 0,
+            'attendance_rate': (len(set(r.get('name', '') for r in recent_attendance)) / total_students * 100) if total_students > 0 else 0
+        }
+
+        return render_template('reports.html',
+                             chart_data=chart_data,
+                             stats=stats,
+                             top_students=top_students[:5])
+
+    except Exception as e:
+        flash(f'Erreur lors du chargement des rapports: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
+
+@app.route('/api/reports/data')
+@require_auth
+def api_reports_data():
+    """API pour récupérer les données de rapports en JSON"""
+    try:
+        # Récupérer les paramètres
+        report_type = request.args.get('type', 'daily')
+        days = request.args.get('days', 30, type=int)
+
+        all_attendance = config.get_all_attendance()
+
+        if report_type == 'daily':
+            # Présences par jour
+            from collections import defaultdict
+            daily_stats = defaultdict(int)
+
+            # Filtrer par nombre de jours
+            cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+
+            for record in all_attendance:
+                date = record.get('date', '')
+                if date and date >= cutoff_date:
+                    daily_stats[date] += 1
+
+            return jsonify({
+                'labels': list(sorted(daily_stats.keys())),
+                'values': [daily_stats[date] for date in sorted(daily_stats.keys())],
+                'title': f'Présences par jour ({days} derniers jours)'
+            })
+
+        elif report_type == 'hourly':
+            # Présences par heure
+            hourly_stats = defaultdict(int)
+            for record in all_attendance:
+                time_str = record.get('time', '')
+                if time_str:
+                    try:
+                        hour = int(time_str.split(':')[0])
+                        hourly_stats[hour] += 1
+                    except:
+                        pass
+
+            return jsonify({
+                'labels': [f"{hour}:00" for hour in range(24)],
+                'values': [hourly_stats[hour] for hour in range(24)],
+                'title': 'Présences par heure'
+            })
+
+        else:
+            return jsonify({'error': 'Type de rapport non supporté'}), 400
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Routes pour la gestion avancée des étudiants
+
+@app.route('/api/students/<student_id>/delete', methods=['DELETE'])
+@require_auth
+def api_delete_student(student_id):
+    """Supprimer un étudiant"""
+    try:
+        # Récupérer les informations de l'étudiant
+        student = db.obtenir_etudiant_par_id(student_id)
+        if not student:
+            return jsonify({'success': False, 'message': 'Étudiant non trouvé'}), 404
+
+        # Supprimer l'étudiant
+        success = db.supprimer_etudiant(student_id)
+
+        if success:
+            # Supprimer aussi les images du dataset si elles existent
+            student_name = f"{student.get('prenom', '')} {student.get('nom', '')}".strip()
+            dataset_path = os.path.join('dataset', student_name)
+            if os.path.exists(dataset_path):
+                shutil.rmtree(dataset_path)
+
+            return jsonify({
+                'success': True,
+                'message': f'Étudiant {student_name} supprimé avec succès'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Erreur lors de la suppression'
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+@app.route('/api/students/<student_id>/edit', methods=['PUT'])
+@require_auth
+def api_edit_student(student_id):
+    """Modifier un étudiant"""
+    try:
+        data = request.get_json()
+
+        # Validation des données
+        required_fields = ['nom', 'prenom', 'email']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'Le champ {field} est requis'
+                }), 400
+
+        # Mettre à jour l'étudiant
+        success = db.modifier_etudiant(
+            student_id,
+            data['nom'],
+            data['prenom'],
+            data['email'],
+            data.get('telephone', '')
+        )
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Étudiant modifié avec succès'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Erreur lors de la modification'
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+@app.route('/api/students/<student_id>/retrain', methods=['POST'])
+@require_auth
+def api_retrain_student(student_id):
+    """Relancer l'entraînement facial pour un étudiant"""
+    try:
+        # Récupérer les informations de l'étudiant
+        student = db.obtenir_etudiant_par_id(student_id)
+        if not student:
+            return jsonify({'success': False, 'message': 'Étudiant non trouvé'}), 404
+
+        student_name = f"{student.get('prenom', '')} {student.get('nom', '')}".strip()
+
+        # Lancer l'entraînement facial
+        trainer = ftm.FacialTrainingModule()
+        # Extraire prénom et nom
+        name_parts = student_name.split(' ', 1)
+        prenom = name_parts[0] if len(name_parts) > 0 else student_name
+        nom = name_parts[1] if len(name_parts) > 1 else ""
+        success = trainer.train_student(prenom, nom, max_photos=15)
+
+        if success:
+            # Régénérer les encodages
+            recognition_controller.reload_encodings()
+
+            return jsonify({
+                'success': True,
+                'message': f'Entraînement facial relancé pour {student_name}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Erreur lors de l\'entraînement facial'
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+@app.route('/api/students/bulk-action', methods=['POST'])
+@require_auth
+def bulk_student_action():
+    """Actions en lot sur les étudiants"""
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        student_ids = data.get('student_ids', [])
+
+        if not action or not student_ids:
+            return jsonify({
+                'success': False,
+                'message': 'Action et IDs étudiants requis'
+            }), 400
+
+        results = []
+
+        if action == 'delete':
+            for student_id in student_ids:
+                try:
+                    student = db.obtenir_etudiant_par_id(student_id)
+                    if student:
+                        success = db.supprimer_etudiant(student_id)
+                        if success:
+                            # Supprimer les images du dataset
+                            student_name = f"{student.get('prenom', '')} {student.get('nom', '')}".strip()
+                            dataset_path = os.path.join('dataset', student_name)
+                            if os.path.exists(dataset_path):
+                                shutil.rmtree(dataset_path)
+                            results.append({'id': student_id, 'success': True})
+                        else:
+                            results.append({'id': student_id, 'success': False, 'error': 'Erreur de suppression'})
+                    else:
+                        results.append({'id': student_id, 'success': False, 'error': 'Étudiant non trouvé'})
+                except Exception as e:
+                    results.append({'id': student_id, 'success': False, 'error': str(e)})
+
+        elif action == 'retrain':
+            for student_id in student_ids:
+                try:
+                    student = db.obtenir_etudiant_par_id(student_id)
+                    if student:
+                        prenom = student.get('prenom', '')
+                        nom = student.get('nom', '')
+                        trainer = ftm.FacialTrainingModule()
+                        success = trainer.train_student(prenom, nom, max_photos=15)
+                        results.append({'id': student_id, 'success': success})
+                    else:
+                        results.append({'id': student_id, 'success': False, 'error': 'Étudiant non trouvé'})
+                except Exception as e:
+                    results.append({'id': student_id, 'success': False, 'error': str(e)})
+
+        # Régénérer les encodages si nécessaire
+        if action == 'retrain':
+            recognition_controller.reload_encodings()
+
+        successful = sum(1 for r in results if r['success'])
+        total = len(results)
+
+        return jsonify({
+            'success': True,
+            'message': f'{successful}/{total} opérations réussies',
+            'results': results
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Erreur: {str(e)}'
+        }), 500
+
+# Routes API pour l'entraînement facial
+@app.route('/api/training/capture-photo', methods=['POST'])
+@require_auth
+def api_capture_photo():
+    """Capture une photo pour l'entraînement facial"""
+    try:
+        if 'photo' not in request.files:
+            return jsonify({'success': False, 'message': 'Aucune photo fournie'})
+
+        photo = request.files['photo']
+        student_id = request.form.get('student_id')
+        photo_index = request.form.get('photo_index', '0')
+
+        if not student_id:
+            return jsonify({'success': False, 'message': 'ID étudiant manquant'})
+
+        # Obtenir les informations de l'étudiant pour créer le bon dossier
+        student = db.obtenir_etudiant_par_id(student_id)
+        if not student:
+            return jsonify({'success': False, 'message': 'Étudiant non trouvé'})
+
+        # Créer le nom du dossier basé sur le nom de l'étudiant
+        student_name = f"{student.get('prenom', '')} {student.get('nom', '')}".strip()
+        student_folder = os.path.join('dataset', student_name)
+        os.makedirs(student_folder, exist_ok=True)
+
+        # Sauvegarder la photo
+        filename = f'photo_{photo_index}.jpg'
+        photo_path = os.path.join(student_folder, filename)
+        photo.save(photo_path)
+
+        return jsonify({
+            'success': True,
+            'message': 'Photo sauvegardée',
+            'photo_path': photo_path
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/api/training/complete', methods=['POST'])
+@require_auth
+def api_complete_training():
+    """Finalise l'entraînement facial et génère les encodages"""
+    try:
+        data = request.get_json()
+        student_id = data.get('student_id')
+
+        if not student_id:
+            return jsonify({'success': False, 'message': 'ID étudiant manquant'})
+
+        # Obtenir les informations de l'étudiant
+        student = db.obtenir_etudiant_par_id(student_id)
+        if not student:
+            return jsonify({'success': False, 'message': 'Étudiant non trouvé'})
+
+        # Lancer l'entraînement facial
+        trainer = ftm.FacialTrainingModule()
+        prenom = student.get('prenom', '')
+        nom = student.get('nom', '')
+
+        success = trainer.train_student(prenom, nom, max_photos=15)
+
+        if success:
+            # Recharger les encodages dans le contrôleur
+            recognition_controller.reload_encodings()
+
+            return jsonify({
+                'success': True,
+                'message': 'Entraînement terminé avec succès'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Échec de l\'entraînement facial'
+            })
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/students/<student_id>/train')
+@require_auth
+def train_student_page(student_id):
+    """Page d'entraînement facial pour un étudiant"""
+    try:
+        student = db.obtenir_etudiant_par_id(student_id)
+        if not student:
+            flash('Étudiant non trouvé', 'error')
+            return redirect(url_for('students'))
+
+        return render_template('train_student.html', student=student)
+
+    except Exception as e:
+        flash(f'Erreur: {str(e)}', 'error')
+        return redirect(url_for('students'))
+
 # WebSocket events
 @socketio.on('connect')
 def handle_connect():
@@ -427,10 +1231,35 @@ def handle_connect():
     print('Client connecté au WebSocket')
     emit('status', {'message': 'Connecté au système de surveillance'})
 
+    # Envoyer le statut actuel de la reconnaissance faciale
+    try:
+        status = recognition_controller.get_status()
+        emit('recognition_status', {
+            'message': f"Système {'actif' if status['is_running'] else 'inactif'}",
+            'type': 'info',
+            'status': status
+        })
+    except Exception as e:
+        emit('recognition_status', {
+            'message': f'Erreur de statut: {e}',
+            'type': 'error'
+        })
+
 @socketio.on('disconnect')
 def handle_disconnect():
     """Gestion de la déconnexion WebSocket"""
     print('Client déconnecté du WebSocket')
+
+@socketio.on('request_camera_feed')
+def handle_camera_feed_request():
+    """Gestion de la demande de flux caméra"""
+    try:
+        status = recognition_controller.get_status()
+        emit('camera_feed_status', {
+            'available': status['is_running'] and status['camera_status'] == 'Connectée'
+        })
+    except Exception as e:
+        emit('camera_feed_status', {'available': False, 'error': str(e)})
 
 def broadcast_attendance_update(name, date, time):
     """Diffuser une mise à jour de présence à tous les clients connectés"""

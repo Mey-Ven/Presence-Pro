@@ -60,7 +60,7 @@
             {% endif %}
         </h5>
         <div class="btn-group" role="group">
-            <button class="btn btn-outline-primary btn-sm" onclick="showComingSoon()">
+            <button class="btn btn-outline-primary btn-sm" onclick="exportStudents()">
                 <i class="fas fa-download me-1"></i>
                 Export
             </button>
@@ -288,13 +288,12 @@
     
     function trainFacial(studentId) {
         if (confirm('Lancer l\'entraînement facial pour cet étudiant?')) {
-            alert('Fonctionnalité d\'entraînement facial en cours de développement');
-        }
-    }
-    
-    function deleteStudent(studentId) {
-        if (confirm('Êtes-vous sûr de vouloir supprimer cet étudiant? Cette action est irréversible.')) {
-            fetch(`/students/${studentId}/delete`, {
+            const button = event.target.closest('button');
+            const originalHTML = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            button.disabled = true;
+
+            fetch(`/api/students/${studentId}/retrain`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -303,13 +302,40 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    location.reload();
+                    showNotification(data.message, 'success');
                 } else {
-                    alert('Erreur: ' + data.message);
+                    showNotification('Erreur: ' + data.message, 'error');
                 }
             })
             .catch(error => {
-                alert('Erreur lors de la suppression: ' + error);
+                showNotification('Erreur lors de l\'entraînement: ' + error, 'error');
+            })
+            .finally(() => {
+                button.innerHTML = originalHTML;
+                button.disabled = false;
+            });
+        }
+    }
+
+    function deleteStudent(studentId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cet étudiant? Cette action est irréversible.')) {
+            fetch(`/api/students/${studentId}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification('Erreur: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Erreur lors de la suppression: ' + error, 'error');
             });
         }
     }
@@ -335,8 +361,89 @@
     
     function regenerateEncodings() {
         if (confirm('Régénérer tous les encodages faciaux? Cette opération peut prendre quelques minutes.')) {
-            alert('Fonctionnalité de régénération en cours de développement');
+            fetch('/api/recognition/reload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification('Erreur: ' + data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Erreur lors de la régénération: ' + error, 'error');
+            });
         }
+    }
+
+    function exportStudents() {
+        // Afficher un menu d'options d'export
+        const options = [
+            { text: 'Export CSV (Étudiants)', url: '/export/students/csv' },
+            { text: 'Export Excel (Présences)', url: '/export/attendance/excel' },
+            { text: 'Export CSV (Présences)', url: '/export/attendance/csv' }
+        ];
+
+        let optionsHtml = options.map(option =>
+            `<a href="${option.url}" class="dropdown-item">
+                <i class="fas fa-download me-2"></i>${option.text}
+            </a>`
+        ).join('');
+
+        // Créer un modal temporaire pour les options
+        const modalHtml = `
+            <div class="modal fade" id="exportModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Options d'Export</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="list-group">
+                                ${optionsHtml}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Ajouter le modal au DOM
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Afficher le modal
+        const modal = new bootstrap.Modal(document.getElementById('exportModal'));
+        modal.show();
+
+        // Nettoyer après fermeture
+        document.getElementById('exportModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    }
+
+    function showNotification(message, type = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        document.body.appendChild(alertDiv);
+
+        // Auto-hide après 5 secondes
+        setTimeout(() => {
+            const alert = new bootstrap.Alert(alertDiv);
+            alert.close();
+        }, 5000);
     }
 </script>
 {% endblock %}
