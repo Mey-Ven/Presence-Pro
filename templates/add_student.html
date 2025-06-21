@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Ajouter un Étudiant - Système de Reconnaissance Faciale{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="fas fa-user-plus me-2"></i>
+        Ajouter un Nouvel Étudiant
+    </h1>
+    <a href="{{ url_for('students') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i>
+        Retour à la liste
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-user-edit me-2"></i>
+                    Informations de l'Étudiant
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="addStudentForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="prenom" class="form-label">
+                                <i class="fas fa-user me-2"></i>
+                                Prénom <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="prenom" name="prenom" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nom" class="form-label">
+                                <i class="fas fa-user me-2"></i>
+                                Nom <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="nom" name="nom" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope me-2"></i>
+                            Email <span class="text-danger">*</span>
+                        </label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                        <div class="form-text">L'email doit être unique pour chaque étudiant</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="telephone" class="form-label">
+                            <i class="fas fa-phone me-2"></i>
+                            Téléphone
+                        </label>
+                        <input type="tel" class="form-control" id="telephone" name="telephone" 
+                               placeholder="+33 6 12 34 56 78">
+                        <div class="form-text">Optionnel - Format international recommandé</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    <i class="fas fa-camera me-2"></i>
+                                    Entraînement Facial
+                                </h6>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="with_facial" name="with_facial" checked>
+                                    <label class="form-check-label" for="with_facial">
+                                        Lancer l'entraînement facial après l'ajout
+                                    </label>
+                                </div>
+                                <small class="text-muted">
+                                    Si activé, vous serez redirigé vers la page de capture de photos après l'ajout de l'étudiant.
+                                    Cela permettra au système de reconnaissance faciale de détecter cet étudiant.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('students') }}" class="btn btn-outline-secondary me-md-2">
+                            <i class="fas fa-times me-2"></i>
+                            Annuler
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            Ajouter l'Étudiant
+                            <span class="loading-spinner spinner-border spinner-border-sm ms-2" style="display: none;"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Information Card -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Informations Importantes
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-key me-2 text-primary"></i>Mot de Passe</h6>
+                        <p class="small text-muted">
+                            Un mot de passe sécurisé sera généré automatiquement pour l'étudiant.
+                            Vous devrez le communiquer à l'étudiant après la création du compte.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-id-card me-2 text-success"></i>ID Étudiant</h6>
+                        <p class="small text-muted">
+                            Un identifiant unique au format E-XXXX sera automatiquement assigné
+                            à l'étudiant lors de la création.
+                        </p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-camera me-2 text-warning"></i>Reconnaissance Faciale</h6>
+                        <p class="small text-muted">
+                            L'entraînement facial capture 10-15 photos de l'étudiant sous différents angles
+                            pour améliorer la précision de la reconnaissance.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-shield-alt me-2 text-danger"></i>Sécurité</h6>
+                        <p class="small text-muted">
+                            Toutes les données sont stockées de manière sécurisée avec chiffrement
+                            des mots de passe et protection des informations personnelles.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handle form submission with loading state
+    document.getElementById('addStudentForm').addEventListener('submit', function(e) {
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const spinner = submitBtn.querySelector('.loading-spinner');
+        
+        // Show loading state
+        spinner.style.display = 'inline-block';
+        submitBtn.disabled = true;
+        
+        // Reset after 10 seconds if no redirect occurs
+        setTimeout(() => {
+            spinner.style.display = 'none';
+            submitBtn.disabled = false;
+        }, 10000);
+    });
+    
+    // Real-time email validation
+    document.getElementById('email').addEventListener('blur', function() {
+        const email = this.value;
+        if (email) {
+            // Simple email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                this.classList.add('is-invalid');
+                if (!this.nextElementSibling || !this.nextElementSibling.classList.contains('invalid-feedback')) {
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback';
+                    feedback.textContent = 'Veuillez entrer une adresse email valide';
+                    this.parentNode.appendChild(feedback);
+                }
+            } else {
+                this.classList.remove('is-invalid');
+                const feedback = this.parentNode.querySelector('.invalid-feedback');
+                if (feedback) {
+                    feedback.remove();
+                }
+            }
+        }
+    });
+    
+    // Format phone number
+    document.getElementById('telephone').addEventListener('input', function() {
+        let value = this.value.replace(/\D/g, ''); // Remove non-digits
+        
+        // Format as +33 6 12 34 56 78
+        if (value.startsWith('33')) {
+            value = '+' + value.substring(0, 2) + ' ' + 
+                    value.substring(2, 3) + ' ' +
+                    value.substring(3, 5) + ' ' +
+                    value.substring(5, 7) + ' ' +
+                    value.substring(7, 9) + ' ' +
+                    value.substring(9, 11);
+        } else if (value.startsWith('0')) {
+            // Convert 06... to +33 6...
+            value = '+33 ' + value.substring(1, 2) + ' ' +
+                    value.substring(2, 4) + ' ' +
+                    value.substring(4, 6) + ' ' +
+                    value.substring(6, 8) + ' ' +
+                    value.substring(8, 10);
+        }
+        
+        this.value = value;
+    });
+    
+    // Auto-capitalize names
+    ['prenom', 'nom'].forEach(fieldId => {
+        document.getElementById(fieldId).addEventListener('input', function() {
+            this.value = this.value.replace(/\b\w/g, l => l.toUpperCase());
+        });
+    });
+    
+    // Focus on first field when page loads
+    window.addEventListener('load', function() {
+        document.getElementById('prenom').focus();
+    });
+</script>
+{% endblock %}

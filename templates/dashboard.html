@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block title %}Tableau de Bord - Système de Reconnaissance Faciale{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="fas fa-tachometer-alt me-2"></i>
+        Tableau de Bord
+    </h1>
+    <div class="text-muted">
+        <i class="fas fa-clock me-1"></i>
+        <span id="currentTime"></span>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card info">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ stats.total_students or 0 }}</div>
+                    <div class="stat-label">Étudiants Enregistrés</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-users fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card success">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ stats.today_attendance or 0 }}</div>
+                    <div class="stat-label">Présences Aujourd'hui</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-calendar-check fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card warning">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ stats.week_attendance or 0 }}</div>
+                    <div class="stat-label">Présences Cette Semaine</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="stat-card danger">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="stat-number">{{ stats.total_attendance or 0 }}</div>
+                    <div class="stat-label">Total Présences</div>
+                </div>
+                <div class="stat-icon">
+                    <i class="fas fa-database fa-2x opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status and Recent Activity -->
+<div class="row">
+    <!-- System Status -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-heartbeat me-2"></i>
+                    État du Système
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="status-item mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-camera me-2"></i>
+                            Caméra
+                        </span>
+                        <span class="badge bg-{{ 'success' if stats.camera_status else 'danger' }}">
+                            {{ 'Connectée' if stats.camera_status else 'Déconnectée' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="status-item mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-database me-2"></i>
+                            Base de Données
+                        </span>
+                        <span class="badge bg-success">
+                            Connectée
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="status-item mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-brain me-2"></i>
+                            Encodages Faciaux
+                        </span>
+                        <span class="badge bg-{{ 'success' if stats.encodings_exist else 'warning' }}">
+                            {{ 'Disponibles' if stats.encodings_exist else 'Manquants' }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="status-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-hdd me-2"></i>
+                            Taille BD
+                        </span>
+                        <span class="badge bg-info">
+                            {{ "%.1f"|format(stats.database_size / 1024) }} KB
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-clock me-2"></i>
+                    Activité Récente
+                </h5>
+                <a href="{{ url_for('attendance') }}" class="btn btn-sm btn-outline-primary">
+                    Voir Tout
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_attendance %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Nom</th>
+                                    <th>Date</th>
+                                    <th>Heure</th>
+                                    <th>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in recent_attendance[:8] %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-user-circle me-2 text-primary"></i>
+                                        {{ record.name }}
+                                    </td>
+                                    <td>{{ record.date }}</td>
+                                    <td>{{ record.time }}</td>
+                                    <td>
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check me-1"></i>
+                                            Présent
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">Aucune activité récente</p>
+                        <a href="{{ url_for('students') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>
+                            Ajouter un Étudiant
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>
+                    Actions Rapides
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('add_student') }}" class="btn btn-primary w-100 py-3">
+                            <i class="fas fa-user-plus fa-2x mb-2 d-block"></i>
+                            Ajouter Étudiant
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <a href="{{ url_for('attendance') }}" class="btn btn-success w-100 py-3">
+                            <i class="fas fa-calendar-check fa-2x mb-2 d-block"></i>
+                            Voir Présences
+                        </a>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <button class="btn btn-warning w-100 py-3" onclick="showComingSoon()">
+                            <i class="fas fa-camera fa-2x mb-2 d-block"></i>
+                            Test Caméra
+                        </button>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <button class="btn btn-info w-100 py-3" onclick="showComingSoon()">
+                            <i class="fas fa-download fa-2x mb-2 d-block"></i>
+                            Export Données
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-time updates indicator -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="fas fa-wifi text-success me-2"></i>
+            <strong class="me-auto">Temps Réel</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            Connecté au système de surveillance en temps réel
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Update current time
+    function updateTime() {
+        const now = new Date();
+        const timeString = now.toLocaleString('fr-FR', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        document.getElementById('currentTime').textContent = timeString;
+    }
+    
+    // Update time every minute
+    updateTime();
+    setInterval(updateTime, 60000);
+    
+    // Show real-time connection toast
+    window.addEventListener('load', function() {
+        const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+        toast.show();
+    });
+    
+    // Socket.IO real-time updates
+    socket.on('attendance_update', function(data) {
+        // Update attendance count
+        const todayCount = document.querySelector('.stat-card.success .stat-number');
+        if (todayCount) {
+            const currentCount = parseInt(todayCount.textContent);
+            todayCount.textContent = currentCount + 1;
+        }
+        
+        // Show notification
+        showNotification('Nouvelle présence détectée: ' + data.name, 'success');
+    });
+    
+    socket.on('system_status', function(data) {
+        // Update system status indicators
+        updateSystemStatus(data);
+    });
+    
+    function showNotification(message, type = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            <i class="fas fa-info-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        const container = document.querySelector('.main-content');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            const alert = new bootstrap.Alert(alertDiv);
+            alert.close();
+        }, 5000);
+    }
+    
+    function updateSystemStatus(status) {
+        // Update camera status
+        const cameraStatus = document.querySelector('.status-item:first-child .badge');
+        if (cameraStatus) {
+            cameraStatus.className = `badge bg-${status.camera ? 'success' : 'danger'}`;
+            cameraStatus.textContent = status.camera ? 'Connectée' : 'Déconnectée';
+        }
+    }
+    
+    // Refresh stats every 30 seconds
+    setInterval(function() {
+        fetch('/api/stats')
+            .then(response => response.json())
+            .then(data => {
+                // Update statistics
+                document.querySelector('.stat-card.info .stat-number').textContent = data.total_students;
+                document.querySelector('.stat-card.success .stat-number').textContent = data.today_attendance;
+                document.querySelector('.stat-card.warning .stat-number').textContent = data.week_attendance;
+                document.querySelector('.stat-card.danger .stat-number').textContent = data.total_attendance;
+            })
+            .catch(error => console.log('Erreur lors de la mise à jour des stats:', error));
+    }, 30000);
+</script>
+{% endblock %}

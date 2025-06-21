@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}Surveillance des Présences - Système de Reconnaissance Faciale{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="fas fa-calendar-check me-2"></i>
+        Surveillance des Présences
+    </h1>
+    <div class="btn-group" role="group">
+        <button class="btn btn-outline-primary" onclick="showComingSoon()">
+            <i class="fas fa-download me-2"></i>
+            Export CSV
+        </button>
+        <button class="btn btn-outline-success" onclick="showComingSoon()">
+            <i class="fas fa-chart-bar me-2"></i>
+            Rapports
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label for="date" class="form-label">
+                    <i class="fas fa-calendar me-2"></i>
+                    Date
+                </label>
+                <input type="date" class="form-control" id="date" name="date" value="{{ date_filter }}">
+            </div>
+            <div class="col-md-4">
+                <label for="student" class="form-label">
+                    <i class="fas fa-user me-2"></i>
+                    Étudiant
+                </label>
+                <input type="text" class="form-control" id="student" name="student" 
+                       value="{{ student_filter }}" placeholder="Nom de l'étudiant...">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="btn-group w-100" role="group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i>
+                        Filtrer
+                    </button>
+                    <a href="{{ url_for('attendance') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-2"></i>
+                        Effacer
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-calendar-day fa-2x mb-2"></i>
+                <h4>{{ attendance_records|length }}</h4>
+                <small>Présences Affichées</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-2x mb-2"></i>
+                <h4>{{ attendance_records|map(attribute='name')|unique|list|length }}</h4>
+                <small>Étudiants Uniques</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-clock fa-2x mb-2"></i>
+                <h4 id="currentTime">--:--</h4>
+                <small>Heure Actuelle</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-wifi fa-2x mb-2"></i>
+                <h4 id="connectionStatus">
+                    <span class="spinner-border spinner-border-sm"></span>
+                </h4>
+                <small>Temps Réel</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-table me-2"></i>
+            Enregistrements de Présence
+            {% if date_filter %}
+                <span class="badge bg-primary ms-2">{{ date_filter }}</span>
+            {% endif %}
+        </h5>
+        <button class="btn btn-sm btn-outline-primary" onclick="refreshData()">
+            <i class="fas fa-sync-alt me-1"></i>
+            Actualiser
+        </button>
+    </div>
+    <div class="card-body p-0">
+        {% if attendance_records %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="attendanceTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>
+                                <i class="fas fa-user me-2"></i>
+                                Nom
+                            </th>
+                            <th>
+                                <i class="fas fa-calendar me-2"></i>
+                                Date
+                            </th>
+                            <th>
+                                <i class="fas fa-clock me-2"></i>
+                                Heure
+                            </th>
+                            <th>
+                                <i class="fas fa-info-circle me-2"></i>
+                                Statut
+                            </th>
+                            <th>
+                                <i class="fas fa-timestamp me-2"></i>
+                                Horodatage
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_records %}
+                        <tr class="attendance-row" data-name="{{ record.name }}" data-date="{{ record.date }}">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm me-3">
+                                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" 
+                                             style="width: 35px; height: 35px;">
+                                            <i class="fas fa-user text-white"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ record.name }}</div>
+                                        <small class="text-muted">Reconnaissance faciale</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">
+                                    {{ record.date }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-bold text-primary">
+                                    {{ record.time }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>
+                                    Présent
+                                </span>
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ record.timestamp[:19] if record.timestamp else '-' }}
+                                </small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-calendar-times fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">
+                    {% if date_filter or student_filter %}
+                        Aucune présence trouvée pour les critères sélectionnés
+                    {% else %}
+                        Aucune présence enregistrée
+                    {% endif %}
+                </h5>
+                <p class="text-muted mb-4">
+                    {% if date_filter or student_filter %}
+                        Essayez de modifier vos filtres ou sélectionnez une autre date
+                    {% else %}
+                        Les présences apparaîtront ici lorsque le système de reconnaissance faciale détectera des étudiants
+                    {% endif %}
+                </p>
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('attendance') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-calendar me-2"></i>
+                        Voir Toutes les Présences
+                    </a>
+                    <a href="{{ url_for('students') }}" class="btn btn-outline-success">
+                        <i class="fas fa-users me-2"></i>
+                        Gérer les Étudiants
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Real-time notification area -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1050">
+    <div id="notificationContainer"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Update current time
+    function updateTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        document.getElementById('currentTime').textContent = timeString;
+    }
+    
+    // Update time every second
+    updateTime();
+    setInterval(updateTime, 1000);
+    
+    // Connection status
+    let isConnected = false;
+    
+    // Socket.IO real-time updates
+    socket.on('connect', function() {
+        isConnected = true;
+        document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-check"></i>';
+        showNotification('Connecté au système temps réel', 'success');
+    });
+    
+    socket.on('disconnect', function() {
+        isConnected = false;
+        document.getElementById('connectionStatus').innerHTML = '<i class="fas fa-times"></i>';
+        showNotification('Connexion temps réel perdue', 'warning');
+    });
+    
+    socket.on('attendance_update', function(data) {
+        // Add new attendance record to the table
+        addAttendanceRow(data);
+        showNotification(`Nouvelle présence: ${data.name}`, 'info');
+        
+        // Update stats
+        updateStats();
+    });
+    
+    function addAttendanceRow(data) {
+        const table = document.getElementById('attendanceTable');
+        if (!table) return;
+        
+        const tbody = table.querySelector('tbody');
+        const newRow = document.createElement('tr');
+        newRow.className = 'attendance-row table-success';
+        newRow.setAttribute('data-name', data.name);
+        newRow.setAttribute('data-date', data.date);
+        
+        newRow.innerHTML = `
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm me-3">
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center" 
+                             style="width: 35px; height: 35px;">
+                            <i class="fas fa-user text-white"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="fw-bold">${data.name}</div>
+                        <small class="text-muted">Reconnaissance faciale</small>
+                    </div>
+                </div>
+            </td>
+            <td>
+                <span class="badge bg-light text-dark">${data.date}</span>
+            </td>
+            <td>
+                <span class="fw-bold text-primary">${data.time}</span>
+            </td>
+            <td>
+                <span class="badge bg-success">
+                    <i class="fas fa-check me-1"></i>
+                    Présent
+                </span>
+            </td>
+            <td>
+                <small class="text-muted">${new Date().toISOString().slice(0, 19)}</small>
+            </td>
+        `;
+        
+        // Insert at the beginning of the table
+        tbody.insertBefore(newRow, tbody.firstChild);
+        
+        // Remove highlight after 3 seconds
+        setTimeout(() => {
+            newRow.classList.remove('table-success');
+        }, 3000);
+    }
+    
+    function updateStats() {
+        // Update the displayed count
+        const rows = document.querySelectorAll('.attendance-row');
+        const countElement = document.querySelector('.card.bg-primary h4');
+        if (countElement) {
+            countElement.textContent = rows.length;
+        }
+        
+        // Update unique students count
+        const uniqueNames = new Set();
+        rows.forEach(row => {
+            uniqueNames.add(row.getAttribute('data-name'));
+        });
+        const uniqueElement = document.querySelector('.card.bg-success h4');
+        if (uniqueElement) {
+            uniqueElement.textContent = uniqueNames.size;
+        }
+    }
+    
+    function showNotification(message, type = 'info') {
+        const container = document.getElementById('notificationContainer');
+        const notification = document.createElement('div');
+        notification.className = `toast align-items-center text-white bg-${type} border-0`;
+        notification.setAttribute('role', 'alert');
+        notification.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="fas fa-${type === 'success' ? 'check' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        
+        container.appendChild(notification);
+        const toast = new bootstrap.Toast(notification);
+        toast.show();
+        
+        // Remove after hiding
+        notification.addEventListener('hidden.bs.toast', () => {
+            notification.remove();
+        });
+    }
+    
+    function refreshData() {
+        location.reload();
+    }
+    
+    // Set today's date as default
+    window.addEventListener('load', function() {
+        const dateInput = document.getElementById('date');
+        if (!dateInput.value) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+    });
+    
+    // Auto-refresh every 30 seconds
+    setInterval(refreshData, 30000);
+</script>
+{% endblock %}

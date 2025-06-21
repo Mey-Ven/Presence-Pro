@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion des Étudiants - Système de Reconnaissance Faciale{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">
+        <i class="fas fa-users me-2"></i>
+        Gestion des Étudiants
+    </h1>
+    <div>
+        <a href="{{ url_for('add_student') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>
+            Ajouter Étudiant
+        </a>
+        <button class="btn btn-outline-secondary" onclick="showComingSoon()">
+            <i class="fas fa-upload me-2"></i>
+            Import CSV
+        </button>
+    </div>
+</div>
+
+<!-- Search and Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" name="search" value="{{ search }}" 
+                           placeholder="Rechercher par nom, prénom, email ou ID...">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i>
+                    Rechercher
+                </button>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('students') }}" class="btn btn-outline-secondary w-100">
+                    <i class="fas fa-times me-2"></i>
+                    Effacer
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Students Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            <i class="fas fa-table me-2"></i>
+            Liste des Étudiants
+            {% if pagination.total %}
+                <span class="badge bg-primary ms-2">{{ pagination.total }}</span>
+            {% endif %}
+        </h5>
+        <div class="btn-group" role="group">
+            <button class="btn btn-outline-primary btn-sm" onclick="showComingSoon()">
+                <i class="fas fa-download me-1"></i>
+                Export
+            </button>
+            <button class="btn btn-outline-warning btn-sm" onclick="regenerateEncodings()">
+                <i class="fas fa-sync me-1"></i>
+                Régénérer Encodages
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        {% if students %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>ID</th>
+                            <th>Photo</th>
+                            <th>Nom Complet</th>
+                            <th>Email</th>
+                            <th>Téléphone</th>
+                            <th>Date Création</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-secondary">{{ student.IdEtudiant }}</span>
+                            </td>
+                            <td>
+                                <div class="student-avatar">
+                                    <img src="/api/student/{{ student.IdEtudiant }}/photo" 
+                                         alt="{{ student.PrenomEtudiant }} {{ student.NomEtudiant }}"
+                                         class="rounded-circle"
+                                         style="width: 40px; height: 40px; object-fit: cover;"
+                                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNlOWVjZWYiLz4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDEyQzE0LjIwOTEgMTIgMTYgMTAuMjA5MSAxNiA4QzE2IDUuNzkwODYgMTQuMjA5MSA0IDEyIDRDOS43OTA4NiA0IDggNS43OTA4NiA4IDhDOCAxMC4yMDkxIDkuNzkwODYgMTIgMTIgMTJaIiBmaWxsPSIjNmM3NTdkIi8+CjxwYXRoIGQ9Ik0xMiAxNEM5LjMzIDEzLjk5IDcuMDEgMTUuNjIgNiAxOEMxMC4wMSAyMCAxMy45OSAyMCAxOCAxOEMxNi45OSAxNS42MiAxNC42NyAxMy45OSAxMiAxNFoiIGZpbGw9IiM2Yzc1N2QiLz4KPC9zdmc+Cjwvc3ZnPgo='">
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-bold">{{ student.PrenomEtudiant }} {{ student.NomEtudiant }}</div>
+                            </td>
+                            <td>
+                                <a href="mailto:{{ student.EmailEtudiant }}" class="text-decoration-none">
+                                    {{ student.EmailEtudiant }}
+                                </a>
+                            </td>
+                            <td>
+                                {% if student.TelephoneEtudiant %}
+                                    <a href="tel:{{ student.TelephoneEtudiant }}" class="text-decoration-none">
+                                        {{ student.TelephoneEtudiant }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {{ student.DateCreation[:10] if student.DateCreation else '-' }}
+                                </small>
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm btn-outline-primary" 
+                                            onclick="editStudent('{{ student.IdEtudiant }}')"
+                                            title="Modifier">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning" 
+                                            onclick="resetPassword('{{ student.IdEtudiant }}')"
+                                            title="Réinitialiser mot de passe">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info" 
+                                            onclick="trainFacial('{{ student.IdEtudiant }}')"
+                                            title="Entraînement facial">
+                                        <i class="fas fa-camera"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="deleteStudent('{{ student.IdEtudiant }}')"
+                                            title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            {% if pagination.total > pagination.per_page %}
+            <div class="card-footer">
+                <nav aria-label="Navigation des pages">
+                    <ul class="pagination justify-content-center mb-0">
+                        {% if pagination.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('students', page=pagination.prev_num, search=search) }}">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for page_num in pagination.pages %}
+                            {% if page_num <= pagination.total // pagination.per_page + 1 %}
+                                <li class="page-item {{ 'active' if page_num == pagination.page }}">
+                                    <a class="page-link" href="{{ url_for('students', page=page_num, search=search) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pagination.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('students', page=pagination.next_num, search=search) }}">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                
+                <div class="text-center mt-2">
+                    <small class="text-muted">
+                        Page {{ pagination.page }} sur {{ (pagination.total // pagination.per_page) + 1 }} 
+                        ({{ pagination.total }} étudiants au total)
+                    </small>
+                </div>
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">
+                    {% if search %}
+                        Aucun étudiant trouvé pour "{{ search }}"
+                    {% else %}
+                        Aucun étudiant enregistré
+                    {% endif %}
+                </h5>
+                <p class="text-muted mb-4">
+                    {% if search %}
+                        Essayez de modifier votre recherche ou
+                    {% endif %}
+                    Commencez par ajouter votre premier étudiant
+                </p>
+                <a href="{{ url_for('add_student') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>
+                    Ajouter un Étudiant
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Password Reset Modal -->
+<div class="modal fade" id="passwordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-key me-2"></i>
+                    Nouveau Mot de Passe
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Mot de passe réinitialisé avec succès!
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nouveau mot de passe:</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="newPassword" readonly>
+                        <button class="btn btn-outline-secondary" onclick="copyPassword()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <small class="text-muted">
+                    Copiez ce mot de passe et communiquez-le à l'étudiant de manière sécurisée.
+                </small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function editStudent(studentId) {
+        window.location.href = `/students/${studentId}/edit`;
+    }
+    
+    function resetPassword(studentId) {
+        if (confirm('Êtes-vous sûr de vouloir réinitialiser le mot de passe de cet étudiant?')) {
+            fetch(`/students/${studentId}/reset_password`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('newPassword').value = data.new_password;
+                    const modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+                    modal.show();
+                } else {
+                    alert('Erreur: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Erreur lors de la réinitialisation: ' + error);
+            });
+        }
+    }
+    
+    function trainFacial(studentId) {
+        if (confirm('Lancer l\'entraînement facial pour cet étudiant?')) {
+            alert('Fonctionnalité d\'entraînement facial en cours de développement');
+        }
+    }
+    
+    function deleteStudent(studentId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cet étudiant? Cette action est irréversible.')) {
+            fetch(`/students/${studentId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Erreur: ' + data.message);
+                }
+            })
+            .catch(error => {
+                alert('Erreur lors de la suppression: ' + error);
+            });
+        }
+    }
+    
+    function copyPassword() {
+        const passwordField = document.getElementById('newPassword');
+        passwordField.select();
+        document.execCommand('copy');
+        
+        // Show feedback
+        const button = event.target.closest('button');
+        const originalHTML = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i>';
+        button.classList.add('btn-success');
+        button.classList.remove('btn-outline-secondary');
+        
+        setTimeout(() => {
+            button.innerHTML = originalHTML;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-secondary');
+        }, 2000);
+    }
+    
+    function regenerateEncodings() {
+        if (confirm('Régénérer tous les encodages faciaux? Cette opération peut prendre quelques minutes.')) {
+            alert('Fonctionnalité de régénération en cours de développement');
+        }
+    }
+</script>
+{% endblock %}
