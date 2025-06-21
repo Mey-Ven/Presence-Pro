@@ -10,6 +10,7 @@ import pickle
 import time
 import sys
 from datetime import datetime
+from camera_manager import CameraManager
 
 class FacialTrainingModule:
     def __init__(self, dataset_folder="dataset", encodings_file="encodings.pickle"):
@@ -31,29 +32,42 @@ class FacialTrainingModule:
 
     def find_camera(self):
         """
-        Trouve une caméra disponible
-        
+        Trouve la meilleure caméra disponible (priorité à la caméra intégrée)
+
         Returns:
             cv2.VideoCapture ou None: Objet caméra ou None si aucune caméra trouvée
         """
-        print("Recherche d'une caméra disponible...")
-        
-        # Essayer plusieurs indices de caméra
-        for i in range(5):
-            print(f"Test de la caméra {i}...")
-            cap = cv2.VideoCapture(i)
-            
-            if cap.isOpened():
-                # Tester si la caméra fonctionne vraiment
-                ret, frame = cap.read()
-                if ret and frame is not None and frame.size > 0:
-                    print(f"✓ Caméra {i} trouvée et fonctionnelle")
-                    return cap
-                else:
-                    cap.release()
-            
-        print("✗ Aucune caméra fonctionnelle trouvée")
-        return None
+        print("🎥 Recherche de la caméra optimale pour l'entraînement...")
+        print("=" * 50)
+
+        # Utiliser le gestionnaire de caméras intelligent
+        camera_manager = CameraManager()
+
+        # Détecter toutes les caméras disponibles
+        cameras = camera_manager.detect_cameras()
+
+        if not cameras:
+            print("❌ Aucune caméra détectée")
+            return None
+
+        # Obtenir la meilleure caméra (priorité à la caméra intégrée)
+        cap = camera_manager.get_best_camera()
+
+        if cap is not None:
+            # Afficher les informations de la caméra sélectionnée
+            camera_info = camera_manager.get_camera_info()
+            if camera_info:
+                print(f"\n✅ CAMÉRA SÉLECTIONNÉE POUR L'ENTRAÎNEMENT:")
+                print(f"   📷 Nom: {camera_info['name']}")
+                print(f"   🔢 Index: {camera_info['index']}")
+                print(f"   🖥️  Type: {'Caméra intégrée' if camera_info['is_builtin'] else 'Caméra externe'}")
+                print(f"   📐 Résolution: {camera_info['width']}x{camera_info['height']}")
+                print("=" * 50)
+
+            return cap
+        else:
+            print("❌ Impossible d'initialiser la caméra sélectionnée")
+            return None
 
     def capture_student_photos(self, prenom, nom, max_photos=15):
         """

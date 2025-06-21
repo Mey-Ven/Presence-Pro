@@ -8,6 +8,7 @@ import sys
 from datetime import datetime
 import csv
 import sqlite_config as firebase_config
+from camera_manager import CameraManager
 
 # Fonction pour gérer l'interruption par Ctrl+C
 def signal_handler(sig, frame):
@@ -54,33 +55,35 @@ try:
         print("Veuillez régénérer les encodages avec encode_faces.py")
         sys.exit(1)
 
-    # Initialiser la camera
-    print("Initialisation de la caméra...")
+    # Initialiser la caméra avec le gestionnaire intelligent
+    print("🎥 Initialisation du système de caméra...")
+    print("=" * 50)
 
-    # Essayer plusieurs indices de caméra
-    camera_indices = [1, 0, 2]  # Essayer d'abord 1 (comme dans le script original), puis 0, puis 2
-    cap = None
+    camera_manager = CameraManager()
 
-    for idx in camera_indices:
-        print(f"Tentative avec la caméra {idx}...")
-        cap = cv2.VideoCapture(idx)
-        if cap.isOpened():
-            # Vérifier si la caméra fonctionne en lisant une image
-            ret, test_frame = cap.read()
-            if ret and test_frame is not None and test_frame.size > 0:
-                print(f"Caméra {idx} connectée avec succès")
-                break
-            else:
-                print(f"Caméra {idx} ne fournit pas d'images valides")
-                cap.release()
-                cap = None
-        else:
-            print(f"Impossible d'ouvrir la caméra {idx}")
-            cap = None
+    # Détecter et lister toutes les caméras disponibles
+    camera_manager.detect_cameras()
+
+    # Obtenir la meilleure caméra (priorité à la caméra intégrée)
+    cap = camera_manager.get_best_camera()
 
     if cap is None:
-        print("ERREUR: Aucune caméra disponible. Vérifiez votre connexion.")
+        print("\n❌ ERREUR: Aucune caméra disponible.")
+        print("💡 Vérifications suggérées:")
+        print("   - Assurez-vous qu'aucune autre application n'utilise la caméra")
+        print("   - Vérifiez les permissions de la caméra")
+        print("   - Redémarrez l'application")
         sys.exit(1)
+
+    # Afficher les informations de la caméra sélectionnée
+    camera_info = camera_manager.get_camera_info()
+    if camera_info:
+        print(f"\n✅ CAMÉRA SÉLECTIONNÉE:")
+        print(f"   📷 Nom: {camera_info['name']}")
+        print(f"   🔢 Index: {camera_info['index']}")
+        print(f"   🖥️  Type: {'Caméra intégrée' if camera_info['is_builtin'] else 'Caméra externe'}")
+        print(f"   📐 Résolution: {camera_info['width']}x{camera_info['height']}")
+        print("=" * 50)
 
     # Réduire la résolution pour améliorer les performances
     try:
