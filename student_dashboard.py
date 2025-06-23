@@ -449,9 +449,9 @@ def get_student_justifications(student_id, status=None):
     
     try:
         query = '''
-            SELECT id_justification, absence_date, reason, description, status, 
-                   submitted_at, reviewed_at, review_comments
-            FROM absence_justifications
+            SELECT id, absence_date, reason, description, status,
+                   created_at, reviewed_at, ''
+            FROM justifications
             WHERE student_id = ?
         '''
         params = [student_id]
@@ -460,7 +460,7 @@ def get_student_justifications(student_id, status=None):
             query += ' AND status = ?'
             params.append(status)
         
-        query += ' ORDER BY submitted_at DESC'
+        query += ' ORDER BY created_at DESC'
         
         cursor.execute(query, params)
         results = cursor.fetchall()
@@ -473,9 +473,9 @@ def get_student_justifications(student_id, status=None):
                 'reason': row[2],
                 'description': row[3],
                 'status': row[4],
-                'submitted_at': row[5],
+                'created_at': row[5],
                 'reviewed_at': row[6],
-                'review_comments': row[7]
+                'review_comments': row[7] if row[7] else ''
             })
         
         return justifications

@@ -164,16 +164,16 @@ def submit_justification():
         cursor = conn.cursor()
         
         cursor.execute('''
-            INSERT INTO absence_justifications 
-            (id_justification, student_id, absence_date, reason, description, submitted_by)
+            INSERT INTO justifications
+            (id, student_id, absence_date, reason, description, parent_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        ''', (justification_id, data['student_id'], data['absence_date'], 
+        ''', (justification_id, data['student_id'], data['absence_date'],
               data['reason'], data.get('description', ''), user['id']))
         
         conn.commit()
         
         # Log audit trail
-        log_audit_trail(user['id'], 'CREATE', 'absence_justifications', justification_id, 
+        log_audit_trail(user['id'], 'CREATE', 'justifications', justification_id,
                        None, data)
         
         return jsonify({'success': True, 'message': 'Justification submitted successfully'})
@@ -198,9 +198,9 @@ def approve_justification(justification_id):
         
         # Verify parent has access to this justification
         cursor.execute('''
-            SELECT aj.*, se.id_student FROM absence_justifications aj
-            JOIN students_extended se ON aj.student_id = se.id_student
-            WHERE aj.id_justification = ? AND se.parent_id = ?
+            SELECT j.* FROM justifications j
+            JOIN parent_children pc ON j.student_id = pc.child_id
+            WHERE j.id = ? AND pc.parent_id = ?
         ''', (justification_id, parent_info['id_parent']))
         
         justification = cursor.fetchone()
@@ -209,16 +209,15 @@ def approve_justification(justification_id):
         
         # Update justification status
         cursor.execute('''
-            UPDATE absence_justifications 
-            SET status = 'approved', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP,
-                review_comments = 'Approved by parent'
-            WHERE id_justification = ?
+            UPDATE justifications
+            SET status = 'approved', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
+            WHERE id = ?
         ''', (user['id'], justification_id))
         
         conn.commit()
         
         # Log audit trail
-        log_audit_trail(user['id'], 'UPDATE', 'absence_justifications', justification_id, 
+        log_audit_trail(user['id'], 'UPDATE', 'justifications', justification_id,
                        {'status': 'pending'}, {'status': 'approved'})
         
         return jsonify({'success': True, 'message': 'Justification approved successfully'})
@@ -628,10 +627,208 @@ def get_parent_notifications(user_id):
         conn.close()
 
 # Import helper functions from student_dashboard
-from student_dashboard import (
-    get_student_attendance_history,
-    get_student_attendance_stats,
-    get_student_justifications,
-    get_student_weekly_schedule,
-    get_student_grades
-)
+def get_student_attendance_stats(student_id):
+    """Get attendance statistics for a student"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Get attendance statistics directly by student_id
+        cursor.execute('''
+            SELECT
+                COUNT(*) as total_days,
+                COUNT(DISTINCT date) as unique_days,
+                MIN(date) as first_attendance,
+                MAX(date) as last_attendance
+            FROM presences
+            WHERE student_id = ?
+        ''', (student_id,))
+
+        result = cursor.fetchone()
+        if result:
+            total_days = result[0] or 0
+            unique_days = result[1] or 0
+
+            # Calculate attendance rate (assuming 30 days in a month)
+            expected_days = 30
+            attendance_rate = (unique_days / expected_days * 100) if expected_days > 0 else 0
+
+            return {
+                'total_days': total_days,
+                'unique_days': unique_days,
+                'attendance_rate': round(attendance_rate, 1),
+                'first_attendance': result[2],
+                'last_attendance': result[3]
+            }
+
+        return {
+            'total_days': 0,
+            'unique_days': 0,
+            'attendance_rate': 0,
+            'first_attendance': None,
+            'last_attendance': None
+        }
+
+    except Exception as e:
+        print(f"Error getting student attendance stats: {e}")
+        return {
+            'total_days': 0,
+            'unique_days': 0,
+            'attendance_rate': 0,
+            'first_attendance': None,
+            'last_attendance': None
+        }
+    finally:
+        conn.close()
+
+def get_student_attendance_history(student_id, limit=10):
+    """Get attendance history for a student"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            SELECT date, time, status, detection_confidence
+            FROM presences
+            WHERE student_id = ?
+            ORDER BY date DESC, time DESC
+            LIMIT ?
+        ''', (student_id, limit))
+
+        results = cursor.fetchall()
+        attendance = []
+
+        for row in results:
+            attendance.append({
+                'date': row[0],
+                'time': row[1],
+                'status': row[2],
+                'detection_confidence': row[3]
+            })
+
+        return attendance
+
+    except Exception as e:
+        print(f"Error getting student attendance history: {e}")
+        return []
+    finally:
+        conn.close()
+
+def get_student_justifications(student_id, status=None):
+    """Get justifications for a student"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        query = '''
+            SELECT id, absence_date, reason, description, status,
+                   created_at, reviewed_at, ''
+            FROM justifications
+            WHERE student_id = ?
+        '''
+
+        params = [student_id]
+
+        if status:
+            query += ' AND status = ?'
+            params.append(status)
+
+        query += ' ORDER BY created_at DESC'
+
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+
+        justifications = []
+        for row in results:
+            justifications.append({
+                'id': row[0],
+                'absence_date': row[1],
+                'reason': row[2],
+                'description': row[3],
+                'status': row[4],
+                'created_at': row[5],
+                'reviewed_at': row[6],
+                'review_comments': row[7] if row[7] else ''
+            })
+
+        return justifications
+
+    except Exception as e:
+        print(f"Error getting student justifications: {e}")
+        return []
+    finally:
+        conn.close()
+
+def get_student_grades(student_id):
+    """Get grades for a student"""
+    # Retourner des données d'exemple pour l'instant
+    return [
+        {
+            'course_name': 'Intelligence Artificielle',
+            'assessment_name': 'Examen Final',
+            'grade_letter': 'A',
+            'points_earned': 85,
+            'points_possible': 100,
+            'percentage': 85,
+            'assessment_date': '2024-12-15'
+        },
+        {
+            'course_name': 'Machine Learning',
+            'assessment_name': 'Projet',
+            'grade_letter': 'B+',
+            'points_earned': 78,
+            'points_possible': 100,
+            'percentage': 78,
+            'assessment_date': '2024-12-10'
+        }
+    ]
+
+def get_student_weekly_schedule(student_id):
+    """Get weekly schedule for a student"""
+    # Retourner un emploi du temps d'exemple
+    return {
+        'lundi': [
+            {
+                'subject_name': 'Intelligence Artificielle',
+                'teacher_name': 'Dr. Martin',
+                'start_time': '08:00',
+                'end_time': '10:00',
+                'room': 'Salle 101'
+            },
+            {
+                'subject_name': 'Machine Learning',
+                'teacher_name': 'Prof. Dubois',
+                'start_time': '10:30',
+                'end_time': '12:30',
+                'room': 'Salle 102'
+            }
+        ],
+        'mardi': [
+            {
+                'subject_name': 'Deep Learning',
+                'teacher_name': 'Dr. Bernard',
+                'start_time': '09:00',
+                'end_time': '11:00',
+                'room': 'Salle 103'
+            }
+        ],
+        'mercredi': [],
+        'jeudi': [
+            {
+                'subject_name': 'Projet IA',
+                'teacher_name': 'Prof. Laurent',
+                'start_time': '14:00',
+                'end_time': '17:00',
+                'room': 'Lab IA'
+            }
+        ],
+        'vendredi': [
+            {
+                'subject_name': 'Séminaire',
+                'teacher_name': 'Dr. Martin',
+                'start_time': '10:00',
+                'end_time': '12:00',
+                'room': 'Amphithéâtre'
+            }
+        ]
+    }
