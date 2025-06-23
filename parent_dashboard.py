@@ -35,24 +35,42 @@ def dashboard():
     """Parent dashboard main page"""
     user = get_current_user()
     parent_info = get_parent_info(user['id'])
-    
+
+    # Si parent_info est None, créer des informations par défaut
+    if not parent_info:
+        parent_info = {
+            'id_parent': user['id'],
+            'first_name': user.get('first_name', 'Parent'),
+            'last_name': user.get('last_name', 'Utilisateur'),
+            'full_name': f"{user.get('first_name', 'Parent')} {user.get('last_name', 'Utilisateur')}",
+            'email': user.get('email', ''),
+            'phone': user.get('phone', ''),
+            'address': 'Non renseigné',
+            'emergency_contact': user.get('phone', ''),
+            'occupation': 'Non renseigné',
+            'relationship_to_student': 'Parent'
+        }
+
     # Get parent's children
     children = get_parent_children(parent_info['id_parent'])
-    
+
     # Get summary information for all children
     children_summary = []
     for child in children:
-        child_summary = {
-            'info': child,
-            'attendance_stats': get_student_attendance_stats(child['id_student']),
-            'recent_attendance': get_student_attendance_history(child['id_student'], limit=3),
-            'pending_justifications': get_student_justifications(child['id_student'], status='pending')
-        }
-        children_summary.append(child_summary)
-    
+        # Utiliser 'id' au lieu de 'id_student' pour la nouvelle structure
+        child_id = child.get('id') or child.get('id_student')
+        if child_id:
+            child_summary = {
+                'info': child,
+                'attendance_stats': get_student_attendance_stats(child_id),
+                'recent_attendance': get_student_attendance_history(child_id, limit=3),
+                'pending_justifications': get_student_justifications(child_id, status='pending')
+            }
+            children_summary.append(child_summary)
+
     # Get unread messages
     unread_messages = get_parent_messages(user['id'], unread_only=True)
-    
+
     return render_template('parent/dashboard.html',
                          parent=parent_info,
                          children=children_summary,
@@ -65,25 +83,31 @@ def child_details(child_id):
     """Detailed view for specific child"""
     user = get_current_user()
     parent_info = get_parent_info(user['id'])
-    
+
+    # Si parent_info est None, utiliser l'ID utilisateur
+    if not parent_info:
+        parent_id = user['id']
+    else:
+        parent_id = parent_info['id_parent']
+
     # Verify parent has access to this child
-    child_info = get_child_info(child_id, parent_info['id_parent'])
+    child_info = get_child_info(child_id, parent_id)
     if not child_info:
         flash('Access denied or child not found.', 'error')
         return redirect(url_for('parent.dashboard'))
-    
+
     # Get child's schedule
     child_schedule = get_student_weekly_schedule(child_id)
-    
+
     # Get child's attendance history
     attendance_history = get_student_attendance_history(child_id, limit=20)
-    
+
     # Get child's grades
     child_grades = get_student_grades(child_id)
-    
+
     # Get attendance statistics
     attendance_stats = get_student_attendance_stats(child_id)
-    
+
     return render_template('parent/child_details.html',
                          parent=parent_info,
                          child=child_info,
