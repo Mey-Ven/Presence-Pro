@@ -145,7 +145,7 @@ class VideoStreamer:
                     matches = face_recognition.compare_faces(
                         self.facial_system.known_face_encodings,
                         face_encoding,
-                        tolerance=0.5  # Réduire la tolérance pour plus de précision
+                        tolerance=0.6  # Augmenter la tolérance pour plus de détections
                     )
                     face_distances = face_recognition.face_distance(
                         self.facial_system.known_face_encodings,
@@ -158,19 +158,18 @@ class VideoStreamer:
 
                         print(f"🎯 Distance minimale: {distance:.3f} (seuil: 0.5)")
 
-                        if matches[best_match_index] and distance < 0.5:
+                        if matches[best_match_index] and distance < 0.6:
                             name = self.facial_system.known_face_names[best_match_index]
                             confidence = 1 - distance
                             color = (255, 0, 0)  # Bleu pour visage reconnu
-                            print(f"✅ RECONNAISSANCE: {name} avec confiance {confidence:.1%}")
-                        else:
-                            print(f"❌ Visage non reconnu (distance: {distance:.3f})")
-                            
+
                             # Enregistrer la présence (marquée comme présent)
                             student_id = self.facial_system.known_face_ids[best_match_index]
                             self._record_attendance(student_id, confidence, "Present")
 
-                            print(f"🎯 RECONNAISSANCE: {name} détecté avec {confidence:.1%} de confiance - Marqué PRÉSENT")
+                            print(f"✅ RECONNAISSANCE: {name} détecté avec {confidence:.1%} de confiance - Marqué PRÉSENT")
+                        else:
+                            print(f"❌ Visage non reconnu (distance: {distance:.3f})")
                 
                 # Dessiner le rectangle bleu autour du visage
                 cv2.rectangle(frame, (left, top), (right, bottom), color, 3)
