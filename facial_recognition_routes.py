@@ -15,6 +15,7 @@ import os
 import json
 from datetime import datetime, date
 import time
+import base64
 
 # Créer le blueprint
 facial_bp = Blueprint('facial', __name__, url_prefix='/facial')
@@ -449,6 +450,7 @@ def api_streaming_status():
         status = streamer.get_detection_info()
 
         # Ajouter les statistiques de présence
+        from enhanced_database import get_connection
         conn = get_connection()
         cursor = conn.cursor()
 
@@ -484,6 +486,7 @@ def api_streaming_status():
 def api_today_attendance_live():
     """API pour obtenir les présences d'aujourd'hui"""
     try:
+        from enhanced_database import get_connection
         conn = get_connection()
         cursor = conn.cursor()
 
