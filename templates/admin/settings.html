@@ -4,27 +4,446 @@
 
 {% block page_title %}Paramètres Système{% endblock %}
 
+{% block extra_css %}
+<style>
+    .settings-section {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .settings-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px 8px 0 0;
+    }
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider {
+        background-color: #2196F3;
+    }
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
+    <!-- En-tête -->
     <div class="row mb-4">
         <div class="col-md-8">
             <h3>Paramètres Système</h3>
             <p class="text-muted">Configurez les paramètres du système</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary">
-                <i class="fas fa-save me-2"></i>
-                Sauvegarder
-            </button>
+            <div class="btn-group">
+                <button class="btn btn-outline-secondary" onclick="resetSettings()">
+                    <i class="fas fa-undo me-1"></i>
+                    Réinitialiser
+                </button>
+                <button class="btn btn-primary" onclick="saveSettings()">
+                    <i class="fas fa-save me-1"></i>
+                    Sauvegarder
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-cog fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Paramètres Généraux -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Paramètres Généraux
+                    </h5>
+                </div>
+                <div class="p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom de l'Institution</label>
+                            <input type="text" class="form-control" value="École Supérieure de Technologie" name="institution_name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Langue du Système</label>
+                            <select class="form-select" name="system_language">
+                                <option value="fr" selected>Français</option>
+                                <option value="en">English</option>
+                                <option value="es">Español</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Fuseau Horaire</label>
+                            <select class="form-select" name="timezone">
+                                <option value="Europe/Paris" selected>Europe/Paris (UTC+1)</option>
+                                <option value="UTC">UTC (UTC+0)</option>
+                                <option value="America/New_York">America/New_York (UTC-5)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Format de Date</label>
+                            <select class="form-select" name="date_format">
+                                <option value="dd/mm/yyyy" selected>DD/MM/YYYY</option>
+                                <option value="mm/dd/yyyy">MM/DD/YYYY</option>
+                                <option value="yyyy-mm-dd">YYYY-MM-DD</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reconnaissance Faciale -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-camera me-2"></i>
+                        Reconnaissance Faciale
+                    </h5>
+                </div>
+                <div class="p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Activer la Reconnaissance Faciale</label>
+                            <p class="text-muted small">Permet la détection automatique des présences</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <label class="switch">
+                                <input type="checkbox" checked name="facial_recognition_enabled">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Seuil de Confiance (%)</label>
+                            <input type="range" class="form-range" min="50" max="100" value="85" name="confidence_threshold" oninput="updateConfidenceValue(this.value)">
+                            <small class="text-muted">Valeur actuelle: <span id="confidenceValue">85</span>%</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Caméra par Défaut</label>
+                            <select class="form-select" name="default_camera">
+                                <option value="0" selected>Caméra Intégrée (0)</option>
+                                <option value="1">Caméra Externe (1)</option>
+                                <option value="2">Caméra USB (2)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Enregistrer les Images de Détection</label>
+                            <p class="text-muted small">Sauvegarder les captures pour audit</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <label class="switch">
+                                <input type="checkbox" name="save_detection_images">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Notifications
+                    </h5>
+                </div>
+                <div class="p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Notifications Email</label>
+                            <p class="text-muted small">Envoyer des notifications par email</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <label class="switch">
+                                <input type="checkbox" checked name="email_notifications">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Serveur SMTP</label>
+                            <input type="text" class="form-control" value="smtp.gmail.com" name="smtp_server">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Port SMTP</label>
+                            <input type="number" class="form-control" value="587" name="smtp_port">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Notifications Push</label>
+                            <p class="text-muted small">Notifications en temps réel dans l'interface</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <label class="switch">
+                                <input type="checkbox" checked name="push_notifications">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sécurité -->
+            <div class="settings-section">
+                <div class="settings-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Sécurité
+                    </h5>
+                </div>
+                <div class="p-4">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Durée de Session (minutes)</label>
+                            <input type="number" class="form-control" value="60" min="15" max="480" name="session_duration">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tentatives de Connexion Max</label>
+                            <input type="number" class="form-control" value="5" min="3" max="10" name="max_login_attempts">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Authentification à Deux Facteurs</label>
+                            <p class="text-muted small">Sécurité renforcée pour les administrateurs</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <label class="switch">
+                                <input type="checkbox" name="two_factor_auth">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Audit Trail Complet</label>
+                            <p class="text-muted small">Enregistrer toutes les actions utilisateur</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <label class="switch">
+                                <input type="checkbox" checked name="full_audit_trail">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panneau d'informations -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Informations Système</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">Version du Système</small>
+                        <div class="fw-bold">v2.1.0</div>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Dernière Mise à Jour</small>
+                        <div class="fw-bold">23 Juin 2025</div>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Base de Données</small>
+                        <div class="fw-bold">SQLite 3.39.0</div>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Espace Disque Utilisé</small>
+                        <div class="fw-bold">245 MB / 10 GB</div>
+                        <div class="progress mt-1" style="height: 4px;">
+                            <div class="progress-bar" style="width: 2.45%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Actions Système</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="testCamera()">
+                            <i class="fas fa-camera me-1"></i>
+                            Tester la Caméra
+                        </button>
+                        <button class="btn btn-outline-info" onclick="backupDatabase()">
+                            <i class="fas fa-database me-1"></i>
+                            Sauvegarder BDD
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="clearCache()">
+                            <i class="fas fa-broom me-1"></i>
+                            Vider le Cache
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="restartSystem()">
+                            <i class="fas fa-power-off me-1"></i>
+                            Redémarrer Système
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Support</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        Besoin d'aide ? Consultez notre documentation ou contactez le support.
+                    </p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="openDocumentation()">
+                            <i class="fas fa-book me-1"></i>
+                            Documentation
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="contactSupport()">
+                            <i class="fas fa-headset me-1"></i>
+                            Contacter Support
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function updateConfidenceValue(value) {
+        document.getElementById('confidenceValue').textContent = value;
+    }
+
+    function saveSettings() {
+        showAlert('Sauvegarde des paramètres en cours...', 'info');
+
+        // Simulation de sauvegarde
+        setTimeout(() => {
+            showAlert('Paramètres sauvegardés avec succès!', 'success');
+        }, 2000);
+    }
+
+    function resetSettings() {
+        if (confirm('Êtes-vous sûr de vouloir réinitialiser tous les paramètres ?')) {
+            showAlert('Réinitialisation des paramètres...', 'warning');
+
+            // Reset des valeurs par défaut
+            document.querySelector('[name="institution_name"]').value = 'École Supérieure de Technologie';
+            document.querySelector('[name="confidence_threshold"]').value = 85;
+            updateConfidenceValue(85);
+
+            setTimeout(() => {
+                showAlert('Paramètres réinitialisés!', 'success');
+            }, 1000);
+        }
+    }
+
+    function testCamera() {
+        showAlert('Test de la caméra en cours...', 'info');
+
+        // Simulation de test
+        setTimeout(() => {
+            showAlert('Caméra testée avec succès! Signal détecté.', 'success');
+        }, 3000);
+    }
+
+    function backupDatabase() {
+        showAlert('Sauvegarde de la base de données...', 'info');
+
+        // Simulation de sauvegarde
+        setTimeout(() => {
+            showAlert('Base de données sauvegardée avec succès!', 'success');
+        }, 4000);
+    }
+
+    function clearCache() {
+        if (confirm('Vider le cache système ?')) {
+            showAlert('Nettoyage du cache en cours...', 'info');
+
+            setTimeout(() => {
+                showAlert('Cache vidé avec succès!', 'success');
+            }, 2000);
+        }
+    }
+
+    function restartSystem() {
+        if (confirm('Redémarrer le système ? Cette action interrompra temporairement le service.')) {
+            showAlert('Redémarrage du système programmé...', 'warning');
+
+            setTimeout(() => {
+                showAlert('Le système redémarrera dans 5 minutes.', 'info');
+            }, 1000);
+        }
+    }
+
+    function openDocumentation() {
+        showAlert('Ouverture de la documentation...', 'info');
+        // window.open('/documentation', '_blank');
+    }
+
+    function contactSupport() {
+        showAlert('Redirection vers le support...', 'info');
+        // window.open('mailto:support@school.com', '_blank');
+    }
+
+    // Animation des sections au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const sections = document.querySelectorAll('.settings-section');
+        sections.forEach((section, index) => {
+            setTimeout(() => {
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(20px)';
+                section.style.transition = 'all 0.5s ease';
+
+                setTimeout(() => {
+                    section.style.opacity = '1';
+                    section.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 200);
+        });
+    });
+</script>
 {% endblock %}

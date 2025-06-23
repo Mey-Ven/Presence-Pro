@@ -4,27 +4,479 @@
 
 {% block page_title %}Hub de Communication{% endblock %}
 
+{% block extra_css %}
+<style>
+    .message-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid #e9ecef;
+        cursor: pointer;
+    }
+    .message-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .message-urgent {
+        border-left-color: #dc3545;
+    }
+    .message-important {
+        border-left-color: #ffc107;
+    }
+    .message-normal {
+        border-left-color: #28a745;
+    }
+    .message-unread {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+    .compose-area {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
+    <!-- En-tête -->
     <div class="row mb-4">
         <div class="col-md-8">
             <h3>Hub de Communication</h3>
             <p class="text-muted">Gérez les messages et communications</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary">
-                <i class="fas fa-envelope me-2"></i>
-                Nouveau Message
-            </button>
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="refreshMessages()">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Actualiser
+                </button>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#composeModal">
+                    <i class="fas fa-envelope me-1"></i>
+                    Nouveau Message
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-envelope fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+    <!-- Statistiques de communication -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-envelope text-primary fa-2x mb-2"></i>
+                    <h4 class="text-primary">24</h4>
+                    <p class="text-muted mb-0">Messages Envoyés</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-inbox text-success fa-2x mb-2"></i>
+                    <h4 class="text-success">18</h4>
+                    <p class="text-muted mb-0">Messages Reçus</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-exclamation-triangle text-warning fa-2x mb-2"></i>
+                    <h4 class="text-warning">3</h4>
+                    <p class="text-muted mb-0">Messages Urgents</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-users text-info fa-2x mb-2"></i>
+                    <h4 class="text-info">156</h4>
+                    <p class="text-muted mb-0">Destinataires Actifs</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Liste des messages -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Messages Récents</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary active" onclick="filterMessages('all')">Tous</button>
+                        <button class="btn btn-outline-primary" onclick="filterMessages('unread')">Non lus</button>
+                        <button class="btn btn-outline-primary" onclick="filterMessages('urgent')">Urgents</button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Message urgent -->
+                    <div class="message-card message-urgent message-unread p-3 border-bottom" onclick="openMessage(1)">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong class="me-2">Maintenance Système Urgente</strong>
+                                    <span class="badge bg-danger">Urgent</span>
+                                </div>
+                                <p class="text-muted mb-1">
+                                    Maintenance programmée ce soir de 22h à 2h du matin. Tous les services seront interrompus...
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>
+                                    Administrateur Système
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Il y a 30 minutes
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <i class="fas fa-circle text-primary" style="font-size: 8px;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Message important -->
+                    <div class="message-card message-important p-3 border-bottom" onclick="openMessage(2)">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong class="me-2">Nouvelle Fonctionnalité Disponible</strong>
+                                    <span class="badge bg-warning">Important</span>
+                                </div>
+                                <p class="text-muted mb-1">
+                                    Le nouveau système de reconnaissance faciale est maintenant opérationnel...
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>
+                                    Équipe Développement
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Il y a 2 heures
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Message normal -->
+                    <div class="message-card message-normal p-3 border-bottom" onclick="openMessage(3)">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong class="me-2">Rapport Mensuel de Présence</strong>
+                                    <span class="badge bg-success">Info</span>
+                                </div>
+                                <p class="text-muted mb-1">
+                                    Le rapport mensuel de présence est disponible dans la section rapports...
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>
+                                    Jean Dupont
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Hier
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Message de bienvenue -->
+                    <div class="message-card message-normal p-3 border-bottom" onclick="openMessage(4)">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center mb-1">
+                                    <strong class="me-2">Bienvenue dans le Système</strong>
+                                    <span class="badge bg-info">Bienvenue</span>
+                                </div>
+                                <p class="text-muted mb-1">
+                                    Bienvenue dans le nouveau système de gestion de présence par reconnaissance faciale...
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>
+                                    Système
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Il y a 3 jours
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions rapides -->
+        <div class="col-md-4">
+            <div class="card compose-area mb-3">
+                <div class="card-body text-center">
+                    <i class="fas fa-bullhorn fa-3x mb-3"></i>
+                    <h5>Diffusion Générale</h5>
+                    <p class="mb-3">Envoyez un message à tous les utilisateurs</p>
+                    <button class="btn btn-light" onclick="composeBroadcast()">
+                        <i class="fas fa-broadcast-tower me-1"></i>
+                        Diffuser
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Actions Rapides</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="messageTeachers()">
+                            <i class="fas fa-chalkboard-teacher me-1"></i>
+                            Message aux Enseignants
+                        </button>
+                        <button class="btn btn-outline-success" onclick="messageStudents()">
+                            <i class="fas fa-graduation-cap me-1"></i>
+                            Message aux Étudiants
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="messageParents()">
+                            <i class="fas fa-user-friends me-1"></i>
+                            Message aux Parents
+                        </button>
+                        <button class="btn btn-outline-info" onclick="scheduleMessage()">
+                            <i class="fas fa-clock me-1"></i>
+                            Programmer un Message
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Modèles de Messages</h6>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action" onclick="useTemplate('absence')">
+                            <i class="fas fa-user-times me-2"></i>
+                            Notification d'Absence
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action" onclick="useTemplate('maintenance')">
+                            <i class="fas fa-tools me-2"></i>
+                            Maintenance Système
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action" onclick="useTemplate('reminder')">
+                            <i class="fas fa-bell me-2"></i>
+                            Rappel Important
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action" onclick="useTemplate('welcome')">
+                            <i class="fas fa-hand-wave me-2"></i>
+                            Message de Bienvenue
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Modal Composer Message -->
+<div class="modal fade" id="composeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau Message</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="composeForm">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Destinataires</label>
+                            <select class="form-select" name="recipients" multiple>
+                                <option value="all_teachers">Tous les Enseignants</option>
+                                <option value="all_students">Tous les Étudiants</option>
+                                <option value="all_parents">Tous les Parents</option>
+                                <option value="teacher1">Jean Dupont (Enseignant)</option>
+                                <option value="student1">Marie Martin (Étudiant)</option>
+                                <option value="parent1">Pierre Durand (Parent)</option>
+                            </select>
+                            <small class="text-muted">Maintenez Ctrl pour sélectionner plusieurs destinataires</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Priorité</label>
+                            <select class="form-select" name="priority">
+                                <option value="normal">Normal</option>
+                                <option value="important">Important</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sujet</label>
+                        <input type="text" class="form-control" name="subject" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Message</label>
+                        <textarea class="form-control" name="message" rows="6" required></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="send_email" id="sendEmail">
+                                <label class="form-check-label" for="sendEmail">
+                                    Envoyer aussi par email
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="schedule" id="scheduleMessage">
+                                <label class="form-check-label" for="scheduleMessage">
+                                    Programmer l'envoi
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-outline-primary" onclick="saveDraft()">Sauvegarder Brouillon</button>
+                <button type="button" class="btn btn-primary" onclick="sendMessage()">Envoyer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterMessages(type) {
+        // Mettre à jour les boutons actifs
+        document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        showAlert(`Filtrage des messages: ${type}`, 'info');
+    }
+
+    function openMessage(messageId) {
+        showAlert(`Ouverture du message #${messageId}`, 'info');
+    }
+
+    function refreshMessages() {
+        showAlert('Actualisation des messages...', 'info');
+
+        // Simulation d'actualisation
+        setTimeout(() => {
+            showAlert('Messages actualisés!', 'success');
+        }, 1000);
+    }
+
+    function composeBroadcast() {
+        // Pré-remplir le modal pour diffusion générale
+        document.querySelector('[name="recipients"]').value = ['all_teachers', 'all_students', 'all_parents'];
+        document.querySelector('[name="priority"]').value = 'important';
+        document.querySelector('[name="subject"]').value = 'Diffusion Générale - ';
+
+        const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+        modal.show();
+    }
+
+    function messageTeachers() {
+        document.querySelector('[name="recipients"]').value = 'all_teachers';
+        document.querySelector('[name="subject"]').value = 'Message aux Enseignants - ';
+
+        const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+        modal.show();
+    }
+
+    function messageStudents() {
+        document.querySelector('[name="recipients"]').value = 'all_students';
+        document.querySelector('[name="subject"]').value = 'Message aux Étudiants - ';
+
+        const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+        modal.show();
+    }
+
+    function messageParents() {
+        document.querySelector('[name="recipients"]').value = 'all_parents';
+        document.querySelector('[name="subject"]').value = 'Message aux Parents - ';
+
+        const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+        modal.show();
+    }
+
+    function scheduleMessage() {
+        document.querySelector('[name="schedule"]').checked = true;
+
+        const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+        modal.show();
+    }
+
+    function useTemplate(templateType) {
+        const templates = {
+            'absence': {
+                subject: 'Notification d\'Absence',
+                message: 'Nous vous informons qu\'une absence a été enregistrée...'
+            },
+            'maintenance': {
+                subject: 'Maintenance Système Programmée',
+                message: 'Une maintenance système est programmée...'
+            },
+            'reminder': {
+                subject: 'Rappel Important',
+                message: 'Nous vous rappelons que...'
+            },
+            'welcome': {
+                subject: 'Bienvenue dans le Système',
+                message: 'Bienvenue dans notre système de gestion de présence...'
+            }
+        };
+
+        const template = templates[templateType];
+        if (template) {
+            document.querySelector('[name="subject"]').value = template.subject;
+            document.querySelector('[name="message"]').value = template.message;
+
+            const modal = new bootstrap.Modal(document.getElementById('composeModal'));
+            modal.show();
+        }
+    }
+
+    function sendMessage() {
+        const form = document.getElementById('composeForm');
+        const formData = new FormData(form);
+
+        // Validation
+        if (!formData.get('subject') || !formData.get('message')) {
+            showAlert('Veuillez remplir le sujet et le message', 'error');
+            return;
+        }
+
+        showAlert('Envoi du message en cours...', 'info');
+
+        // Fermer le modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('composeModal'));
+        modal.hide();
+
+        // Simulation d'envoi
+        setTimeout(() => {
+            showAlert('Message envoyé avec succès!', 'success');
+        }, 2000);
+
+        form.reset();
+    }
+
+    function saveDraft() {
+        showAlert('Brouillon sauvegardé!', 'success');
+    }
+
+    // Animation des messages au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const messages = document.querySelectorAll('.message-card');
+        messages.forEach((message, index) => {
+            setTimeout(() => {
+                message.style.opacity = '0';
+                message.style.transform = 'translateX(-20px)';
+                message.style.transition = 'all 0.5s ease';
+
+                setTimeout(() => {
+                    message.style.opacity = '1';
+                    message.style.transform = 'translateX(0)';
+                }, 100);
+            }, index * 100);
+        });
+    });
+</script>
 {% endblock %}

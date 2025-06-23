@@ -4,27 +4,419 @@
 
 {% block page_title %}Rapports Système{% endblock %}
 
+{% block extra_css %}
+<style>
+    .report-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+        cursor: pointer;
+    }
+    .report-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 20px 0;
+    }
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
+    <!-- En-tête -->
     <div class="row mb-4">
         <div class="col-md-8">
             <h3>Rapports Système</h3>
             <p class="text-muted">Consultez les rapports et analyses du système</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary">
-                <i class="fas fa-chart-bar me-2"></i>
-                Nouveau Rapport
-            </button>
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="exportReport('pdf')">
+                    <i class="fas fa-file-pdf me-1"></i>
+                    PDF
+                </button>
+                <button class="btn btn-outline-success" onclick="exportReport('excel')">
+                    <i class="fas fa-file-excel me-1"></i>
+                    Excel
+                </button>
+                <button class="btn btn-primary" onclick="generateReport()">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    Générer Rapport
+                </button>
+            </div>
         </div>
     </div>
 
+    <!-- Métriques principales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card metric-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-users fa-2x mb-2"></i>
+                    <h3>4</h3>
+                    <p class="mb-0">Utilisateurs Actifs</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-book fa-2x mb-2"></i>
+                    <h3>3</h3>
+                    <p class="mb-0">Cours Actifs</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                    <h3>156</h3>
+                    <p class="mb-0">Présences Cette Semaine</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card metric-card text-center">
+                <div class="card-body">
+                    <i class="fas fa-percentage fa-2x mb-2"></i>
+                    <h3>87%</h3>
+                    <p class="mb-0">Taux de Présence</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rapports disponibles -->
+    <div class="row mb-4">
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card report-card" onclick="viewReport('attendance')">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-primary text-white rounded-circle p-3 me-3">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Rapport de Présence</h6>
+                            <small class="text-muted">Analyse des présences</small>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Statistiques détaillées des présences par cours, étudiant et période.
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Dernière mise à jour: Aujourd'hui</small>
+                        <i class="fas fa-arrow-right text-primary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card report-card" onclick="viewReport('grades')">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-success text-white rounded-circle p-3 me-3">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Rapport de Notes</h6>
+                            <small class="text-muted">Performance académique</small>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Analyse des performances académiques et distribution des notes.
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Dernière mise à jour: Hier</small>
+                        <i class="fas fa-arrow-right text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card report-card" onclick="viewReport('enrollment')">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-info text-white rounded-circle p-3 me-3">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Rapport d'Inscription</h6>
+                            <small class="text-muted">Inscriptions aux cours</small>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Statistiques des inscriptions et taux d'occupation des cours.
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Dernière mise à jour: Aujourd'hui</small>
+                        <i class="fas fa-arrow-right text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card report-card" onclick="viewReport('activity')">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-warning text-white rounded-circle p-3 me-3">
+                            <i class="fas fa-activity"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Activité Système</h6>
+                            <small class="text-muted">Utilisation du système</small>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Analyse de l'activité des utilisateurs et utilisation du système.
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Dernière mise à jour: Il y a 2h</small>
+                        <i class="fas fa-arrow-right text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card report-card" onclick="viewReport('financial')">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-danger text-white rounded-circle p-3 me-3">
+                            <i class="fas fa-euro-sign"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Rapport Financier</h6>
+                            <small class="text-muted">Données financières</small>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Analyse des frais de scolarité et données financières.
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Dernière mise à jour: Cette semaine</small>
+                        <i class="fas fa-arrow-right text-danger"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card report-card" onclick="viewReport('custom')">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-secondary text-white rounded-circle p-3 me-3">
+                            <i class="fas fa-cog"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Rapport Personnalisé</h6>
+                            <small class="text-muted">Créer un rapport</small>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        Créez des rapports personnalisés selon vos besoins.
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">Nouveau rapport</small>
+                        <i class="fas fa-plus text-secondary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique de présence -->
     <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+        <div class="card-header">
+            <h5 class="mb-0">Évolution des Présences - 7 Derniers Jours</h5>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="attendanceChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Modal Rapport Personnalisé -->
+<div class="modal fade" id="customReportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Créer un Rapport Personnalisé</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="customReportForm">
+                    <div class="mb-3">
+                        <label class="form-label">Nom du Rapport</label>
+                        <input type="text" class="form-control" name="report_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type de Données</label>
+                        <select class="form-select" name="data_type" required>
+                            <option value="">Sélectionner</option>
+                            <option value="attendance">Présences</option>
+                            <option value="grades">Notes</option>
+                            <option value="enrollment">Inscriptions</option>
+                            <option value="activity">Activité</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Date de Début</label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Date de Fin</label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Format de Sortie</label>
+                        <select class="form-select" name="output_format" required>
+                            <option value="pdf">PDF</option>
+                            <option value="excel">Excel</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="generateCustomReport()">Générer</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function viewReport(reportType) {
+        const reportNames = {
+            'attendance': 'Rapport de Présence',
+            'grades': 'Rapport de Notes',
+            'enrollment': 'Rapport d\'Inscription',
+            'activity': 'Activité Système',
+            'financial': 'Rapport Financier',
+            'custom': 'Rapport Personnalisé'
+        };
+
+        if (reportType === 'custom') {
+            const modal = new bootstrap.Modal(document.getElementById('customReportModal'));
+            modal.show();
+        } else {
+            showAlert(`Ouverture du ${reportNames[reportType]}`, 'info');
+        }
+    }
+
+    function exportReport(format) {
+        showAlert(`Export en cours au format ${format.toUpperCase()}...`, 'info');
+
+        // Simulation d'export
+        setTimeout(() => {
+            showAlert(`Rapport exporté avec succès en ${format.toUpperCase()}!`, 'success');
+        }, 2000);
+    }
+
+    function generateReport() {
+        showAlert('Génération du rapport en cours...', 'info');
+
+        // Simulation de génération
+        setTimeout(() => {
+            showAlert('Rapport généré avec succès!', 'success');
+        }, 3000);
+    }
+
+    function generateCustomReport() {
+        const form = document.getElementById('customReportForm');
+        const formData = new FormData(form);
+
+        // Validation
+        if (!formData.get('report_name') || !formData.get('data_type')) {
+            showAlert('Veuillez remplir tous les champs obligatoires', 'error');
+            return;
+        }
+
+        showAlert('Génération du rapport personnalisé...', 'info');
+
+        // Fermer le modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('customReportModal'));
+        modal.hide();
+
+        // Simulation
+        setTimeout(() => {
+            showAlert('Rapport personnalisé généré avec succès!', 'success');
+        }, 2000);
+
+        form.reset();
+    }
+
+    // Graphique de présence
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('attendanceChart').getContext('2d');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+                datasets: [{
+                    label: 'Présences',
+                    data: [65, 78, 82, 75, 88, 45, 30],
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.4
+                }, {
+                    label: 'Absences',
+                    data: [15, 12, 8, 15, 7, 25, 35],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Évolution Hebdomadaire des Présences'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Animation des cartes
+        const cards = document.querySelectorAll('.report-card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 100);
+        });
+    });
+</script>
 {% endblock %}

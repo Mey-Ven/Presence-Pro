@@ -4,27 +4,422 @@
 
 {% block page_title %}Gestion des Cours{% endblock %}
 
+{% block extra_css %}
+<style>
+    .course-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+    }
+    .course-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .course-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1rem;
+        border-radius: 0.375rem 0.375rem 0 0;
+    }
+    .enrollment-progress {
+        height: 6px;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
+    <!-- En-tête -->
     <div class="row mb-4">
         <div class="col-md-8">
             <h3>Gestion des Cours</h3>
             <p class="text-muted">Gérez tous les cours du système</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCourseModal">
                 <i class="fas fa-plus me-2"></i>
                 Nouveau Cours
             </button>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-book fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <select class="form-select" id="departmentFilter">
+                        <option value="">Tous les départements</option>
+                        <option value="math">Mathématiques</option>
+                        <option value="physics">Physique</option>
+                        <option value="chemistry">Chimie</option>
+                        <option value="biology">Biologie</option>
+                        <option value="computer">Informatique</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="semesterFilter">
+                        <option value="">Tous les semestres</option>
+                        <option value="1">Semestre 1</option>
+                        <option value="2">Semestre 2</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="searchCourse" placeholder="Rechercher un cours...">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary w-100" onclick="filterCourses()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des cours -->
+    <div class="row" id="coursesList">
+        <!-- Cours de Mathématiques -->
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card course-card">
+                <div class="course-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">MATH101</h6>
+                            <h5 class="mb-0">Algèbre Linéaire</h5>
+                        </div>
+                        <span class="badge bg-light text-dark">3 crédits</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-user me-1"></i>
+                        Prof. Jean Dupont
+                    </p>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-building me-1"></i>
+                        Département Mathématiques
+                    </p>
+                    <p class="text-muted small mb-3">
+                        <i class="fas fa-calendar me-1"></i>
+                        Semestre 1 - 2024/2025
+                    </p>
+
+                    <!-- Progression des inscriptions -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="text-muted">Inscriptions</small>
+                            <small class="text-muted">25/30</small>
+                        </div>
+                        <div class="progress enrollment-progress">
+                            <div class="progress-bar bg-success" style="width: 83%"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-success">Actif</span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editCourse('MATH101')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="viewCourse('MATH101')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-success" onclick="manageCourse('MATH101')">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cours de Physique -->
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card course-card">
+                <div class="course-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">PHYS201</h6>
+                            <h5 class="mb-0">Mécanique Quantique</h5>
+                        </div>
+                        <span class="badge bg-light text-dark">4 crédits</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-user me-1"></i>
+                        Prof. Marie Curie
+                    </p>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-building me-1"></i>
+                        Département Physique
+                    </p>
+                    <p class="text-muted small mb-3">
+                        <i class="fas fa-calendar me-1"></i>
+                        Semestre 2 - 2024/2025
+                    </p>
+
+                    <!-- Progression des inscriptions -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="text-muted">Inscriptions</small>
+                            <small class="text-muted">18/25</small>
+                        </div>
+                        <div class="progress enrollment-progress">
+                            <div class="progress-bar bg-warning" style="width: 72%"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-success">Actif</span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editCourse('PHYS201')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="viewCourse('PHYS201')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-success" onclick="manageCourse('PHYS201')">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cours d'Informatique -->
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card course-card">
+                <div class="course-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">INFO301</h6>
+                            <h5 class="mb-0">Intelligence Artificielle</h5>
+                        </div>
+                        <span class="badge bg-light text-dark">3 crédits</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-user me-1"></i>
+                        Prof. Alan Turing
+                    </p>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-building me-1"></i>
+                        Département Informatique
+                    </p>
+                    <p class="text-muted small mb-3">
+                        <i class="fas fa-calendar me-1"></i>
+                        Semestre 1 - 2024/2025
+                    </p>
+
+                    <!-- Progression des inscriptions -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="text-muted">Inscriptions</small>
+                            <small class="text-muted">30/30</small>
+                        </div>
+                        <div class="progress enrollment-progress">
+                            <div class="progress-bar bg-danger" style="width: 100%"></div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="badge bg-danger">Complet</span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editCourse('INFO301')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="viewCourse('INFO301')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-outline-success" onclick="manageCourse('INFO301')">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">3</h3>
+                    <p class="text-muted mb-0">Cours Actifs</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">73</h3>
+                    <p class="text-muted mb-0">Étudiants Inscrits</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-info">3</h3>
+                    <p class="text-muted mb-0">Enseignants Assignés</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">85%</h3>
+                    <p class="text-muted mb-0">Taux d'Occupation</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Modal Ajouter Cours -->
+<div class="modal fade" id="addCourseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouveau Cours</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addCourseForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Code du Cours</label>
+                            <input type="text" class="form-control" name="course_code" placeholder="ex: MATH101" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nom du Cours</label>
+                            <input type="text" class="form-control" name="course_name" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Crédits</label>
+                            <select class="form-select" name="credits">
+                                <option value="1">1 crédit</option>
+                                <option value="2">2 crédits</option>
+                                <option value="3" selected>3 crédits</option>
+                                <option value="4">4 crédits</option>
+                                <option value="5">5 crédits</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Département</label>
+                            <select class="form-select" name="department" required>
+                                <option value="">Sélectionner</option>
+                                <option value="math">Mathématiques</option>
+                                <option value="physics">Physique</option>
+                                <option value="chemistry">Chimie</option>
+                                <option value="biology">Biologie</option>
+                                <option value="computer">Informatique</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Semestre</label>
+                            <select class="form-select" name="semester" required>
+                                <option value="">Sélectionner</option>
+                                <option value="1">Semestre 1</option>
+                                <option value="2">Semestre 2</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Enseignant</label>
+                            <select class="form-select" name="teacher_id" required>
+                                <option value="">Sélectionner un enseignant</option>
+                                <option value="teacher1">Jean Dupont</option>
+                                <option value="teacher2">Marie Curie</option>
+                                <option value="teacher3">Alan Turing</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre Max d'Étudiants</label>
+                            <input type="number" class="form-control" name="max_students" value="30" min="1" max="100">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveCourse()">Créer Cours</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterCourses() {
+        const departmentFilter = document.getElementById('departmentFilter').value;
+        const semesterFilter = document.getElementById('semesterFilter').value;
+        const searchTerm = document.getElementById('searchCourse').value.toLowerCase();
+
+        showAlert('Filtres appliqués avec succès', 'success');
+    }
+
+    function editCourse(courseCode) {
+        showAlert(`Modification du cours ${courseCode}`, 'info');
+    }
+
+    function viewCourse(courseCode) {
+        showAlert(`Affichage des détails du cours ${courseCode}`, 'info');
+    }
+
+    function manageCourse(courseCode) {
+        showAlert(`Gestion du cours ${courseCode}`, 'info');
+    }
+
+    function saveCourse() {
+        const form = document.getElementById('addCourseForm');
+        const formData = new FormData(form);
+
+        // Validation simple
+        if (!formData.get('course_code') || !formData.get('course_name') || !formData.get('department')) {
+            showAlert('Veuillez remplir tous les champs obligatoires', 'error');
+            return;
+        }
+
+        // Simulation de création
+        showAlert('Cours créé avec succès!', 'success');
+
+        // Fermer le modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addCourseModal'));
+        modal.hide();
+
+        // Reset form
+        form.reset();
+    }
+
+    // Animation des cartes au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.course-card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 150);
+        });
+    });
+</script>
 {% endblock %}

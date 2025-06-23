@@ -333,6 +333,34 @@ def attendance():
                          start_date=start_date,
                          end_date=end_date)
 
+def get_teacher_courses_with_students(teacher_id):
+    """Get teacher's courses with enrolled students"""
+    try:
+        # Return sample data for now
+        return [
+            {
+                'id': 'MATH101',
+                'name': 'Algèbre Linéaire',
+                'students_count': 25,
+                'students': [
+                    {'id': 'student1', 'name': 'Marie Martin'},
+                    {'id': 'student2', 'name': 'Paul Dubois'}
+                ]
+            },
+            {
+                'id': 'PHYS201',
+                'name': 'Mécanique Quantique',
+                'students_count': 18,
+                'students': [
+                    {'id': 'student1', 'name': 'Marie Martin'},
+                    {'id': 'student3', 'name': 'Sophie Laurent'}
+                ]
+            }
+        ]
+    except Exception as e:
+        print(f"Error getting teacher courses with students: {e}")
+        return []
+
 # Helper functions
 
 def get_teacher_info(user_id):

@@ -4,27 +4,392 @@
 
 {% block page_title %}Gestion des Utilisateurs{% endblock %}
 
+{% block extra_css %}
+<style>
+    .user-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e9ecef;
+    }
+    .user-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .role-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    .status-active {
+        color: #28a745;
+    }
+    .status-inactive {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
+    <!-- En-tête -->
     <div class="row mb-4">
         <div class="col-md-8">
             <h3>Gestion des Utilisateurs</h3>
             <p class="text-muted">Gérez tous les utilisateurs du système</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
                 <i class="fas fa-plus me-2"></i>
                 Nouvel Utilisateur
             </button>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-users fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <select class="form-select" id="roleFilter">
+                        <option value="">Tous les rôles</option>
+                        <option value="admin">Administrateur</option>
+                        <option value="teacher">Enseignant</option>
+                        <option value="student">Étudiant</option>
+                        <option value="parent">Parent</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter">
+                        <option value="">Tous les statuts</option>
+                        <option value="1">Actif</option>
+                        <option value="0">Inactif</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="searchUser" placeholder="Rechercher un utilisateur...">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary w-100" onclick="filterUsers()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des utilisateurs -->
+    <div class="row" id="usersList">
+        <!-- Administrateur -->
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card user-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle bg-primary text-white me-2">
+                                <i class="fas fa-user-shield"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">System Administrator</h6>
+                                <small class="text-muted">admin</small>
+                            </div>
+                        </div>
+                        <span class="badge bg-danger role-badge">Admin</span>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-envelope me-1"></i>
+                        admin@school.com
+                    </p>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-phone me-1"></i>
+                        +1234567890
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="status-active">
+                            <i class="fas fa-circle me-1"></i>
+                            Actif
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editUser('admin')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="viewUser('admin')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enseignant -->
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card user-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle bg-success text-white me-2">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Jean Dupont</h6>
+                                <small class="text-muted">teacher1</small>
+                            </div>
+                        </div>
+                        <span class="badge bg-success role-badge">Enseignant</span>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-envelope me-1"></i>
+                        teacher1@school.com
+                    </p>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-building me-1"></i>
+                        Département Mathématiques
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="status-active">
+                            <i class="fas fa-circle me-1"></i>
+                            Actif
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editUser('teacher1')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="viewUser('teacher1')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Étudiant -->
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card user-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle bg-info text-white me-2">
+                                <i class="fas fa-graduation-cap"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Marie Martin</h6>
+                                <small class="text-muted">student1</small>
+                            </div>
+                        </div>
+                        <span class="badge bg-info role-badge">Étudiant</span>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-envelope me-1"></i>
+                        student1@school.com
+                    </p>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-users me-1"></i>
+                        Classe Terminale S
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="status-active">
+                            <i class="fas fa-circle me-1"></i>
+                            Actif
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editUser('student1')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="viewUser('student1')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Parent -->
+        <div class="col-md-6 col-lg-4 mb-3">
+            <div class="card user-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle bg-warning text-white me-2">
+                                <i class="fas fa-user-friends"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Pierre Durand</h6>
+                                <small class="text-muted">parent1</small>
+                            </div>
+                        </div>
+                        <span class="badge bg-warning role-badge">Parent</span>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-envelope me-1"></i>
+                        parent1@school.com
+                    </p>
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-child me-1"></i>
+                        Parent de Marie Martin
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="status-active">
+                            <i class="fas fa-circle me-1"></i>
+                            Actif
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editUser('parent1')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-info" onclick="viewUser('parent1')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">4</h3>
+                    <p class="text-muted mb-0">Total Utilisateurs</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">4</h3>
+                    <p class="text-muted mb-0">Utilisateurs Actifs</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-info">2</h3>
+                    <p class="text-muted mb-0">Connexions Aujourd'hui</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">1</h3>
+                    <p class="text-muted mb-0">Nouveaux Cette Semaine</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Modal Ajouter Utilisateur -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvel Utilisateur</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Prénom</label>
+                            <input type="text" class="form-control" name="first_name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nom</label>
+                            <input type="text" class="form-control" name="last_name" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nom d'utilisateur</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rôle</label>
+                        <select class="form-select" name="role" required>
+                            <option value="">Sélectionner un rôle</option>
+                            <option value="admin">Administrateur</option>
+                            <option value="teacher">Enseignant</option>
+                            <option value="student">Étudiant</option>
+                            <option value="parent">Parent</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Téléphone</label>
+                        <input type="tel" class="form-control" name="phone">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">Créer Utilisateur</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterUsers() {
+        const roleFilter = document.getElementById('roleFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const searchTerm = document.getElementById('searchUser').value.toLowerCase();
+
+        showAlert('Filtres appliqués avec succès', 'success');
+    }
+
+    function editUser(username) {
+        showAlert(`Modification de l'utilisateur ${username}`, 'info');
+    }
+
+    function viewUser(username) {
+        showAlert(`Affichage des détails de ${username}`, 'info');
+    }
+
+    function saveUser() {
+        const form = document.getElementById('addUserForm');
+        const formData = new FormData(form);
+
+        // Validation simple
+        if (!formData.get('first_name') || !formData.get('last_name') || !formData.get('email')) {
+            showAlert('Veuillez remplir tous les champs obligatoires', 'error');
+            return;
+        }
+
+        // Simulation de création
+        showAlert('Utilisateur créé avec succès!', 'success');
+
+        // Fermer le modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+        modal.hide();
+
+        // Reset form
+        form.reset();
+    }
+
+    // Animation des cartes au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.user-card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 100);
+        });
+    });
+</script>
 {% endblock %}

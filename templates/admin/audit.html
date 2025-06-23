@@ -4,27 +4,512 @@
 
 {% block page_title %}Journal d'Audit{% endblock %}
 
+{% block extra_css %}
+<style>
+    .audit-entry {
+        border-left: 4px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    .audit-entry:hover {
+        background-color: #f8f9fa;
+        border-left-color: #007bff;
+    }
+    .action-create { border-left-color: #28a745; }
+    .action-update { border-left-color: #ffc107; }
+    .action-delete { border-left-color: #dc3545; }
+    .action-login { border-left-color: #17a2b8; }
+    .action-logout { border-left-color: #6c757d; }
+
+    .timeline {
+        position: relative;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 30px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    .timeline-item {
+        position: relative;
+        padding-left: 60px;
+        margin-bottom: 20px;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: 20px;
+        top: 10px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #007bff;
+        border: 3px solid #fff;
+        box-shadow: 0 0 0 3px #e9ecef;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
+    <!-- En-tête -->
     <div class="row mb-4">
         <div class="col-md-8">
             <h3>Journal d'Audit</h3>
             <p class="text-muted">Consultez l'historique des actions système</p>
         </div>
         <div class="col-md-4 text-end">
-            <button class="btn btn-primary">
-                <i class="fas fa-download me-2"></i>
-                Exporter Logs
-            </button>
+            <div class="btn-group">
+                <button class="btn btn-outline-primary" onclick="refreshAudit()">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Actualiser
+                </button>
+                <button class="btn btn-primary" onclick="exportAudit()">
+                    <i class="fas fa-download me-1"></i>
+                    Exporter
+                </button>
+            </div>
         </div>
     </div>
 
+    <!-- Filtres -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2">
+                    <select class="form-select" id="actionFilter">
+                        <option value="">Toutes les actions</option>
+                        <option value="CREATE">Création</option>
+                        <option value="UPDATE">Modification</option>
+                        <option value="DELETE">Suppression</option>
+                        <option value="LOGIN">Connexion</option>
+                        <option value="LOGOUT">Déconnexion</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" id="userFilter">
+                        <option value="">Tous les utilisateurs</option>
+                        <option value="admin">Administrateur</option>
+                        <option value="teacher1">Jean Dupont</option>
+                        <option value="student1">Marie Martin</option>
+                        <option value="parent1">Pierre Durand</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="date" class="form-control" id="dateFrom" value="2025-06-16">
+                </div>
+                <div class="col-md-2">
+                    <input type="date" class="form-control" id="dateTo" value="2025-06-23">
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" id="searchAudit" placeholder="Rechercher dans les logs...">
+                </div>
+                <div class="col-md-1">
+                    <button class="btn btn-outline-primary w-100" onclick="filterAudit()">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques d'audit -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-plus-circle text-success fa-2x mb-2"></i>
+                    <h5 class="text-success">24</h5>
+                    <small class="text-muted">Créations</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-edit text-warning fa-2x mb-2"></i>
+                    <h5 class="text-warning">18</h5>
+                    <small class="text-muted">Modifications</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-trash text-danger fa-2x mb-2"></i>
+                    <h5 class="text-danger">3</h5>
+                    <small class="text-muted">Suppressions</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-sign-in-alt text-info fa-2x mb-2"></i>
+                    <h5 class="text-info">45</h5>
+                    <small class="text-muted">Connexions</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-exclamation-triangle text-warning fa-2x mb-2"></i>
+                    <h5 class="text-warning">2</h5>
+                    <small class="text-muted">Erreurs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <i class="fas fa-shield-alt text-primary fa-2x mb-2"></i>
+                    <h5 class="text-primary">0</h5>
+                    <small class="text-muted">Violations</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Journal d'audit -->
     <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-history fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+        <div class="card-header">
+            <h5 class="mb-0">Activités Récentes</h5>
+        </div>
+        <div class="card-body">
+            <div class="timeline">
+                <!-- Connexion récente -->
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-info"></div>
+                    <div class="audit-entry action-login p-3 rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge bg-info me-2">LOGIN</span>
+                                    Connexion utilisateur
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    L'utilisateur <strong>admin</strong> s'est connecté au système
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Aujourd'hui à 15:42
+                                    <i class="fas fa-map-marker-alt ms-2 me-1"></i>
+                                    IP: 127.0.0.1
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewAuditDetails(1)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Création d'utilisateur -->
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-success"></div>
+                    <div class="audit-entry action-create p-3 rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge bg-success me-2">CREATE</span>
+                                    Création d'utilisateur
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    Nouvel utilisateur créé: <strong>student1</strong> (Marie Martin)
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>
+                                    Par: admin
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Aujourd'hui à 14:30
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-success" onclick="viewAuditDetails(2)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modification de cours -->
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-warning"></div>
+                    <div class="audit-entry action-update p-3 rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge bg-warning me-2">UPDATE</span>
+                                    Modification de cours
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    Cours modifié: <strong>MATH101</strong> - Algèbre Linéaire
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>
+                                    Par: teacher1
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Aujourd'hui à 13:15
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-warning" onclick="viewAuditDetails(3)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Présence enregistrée -->
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-primary"></div>
+                    <div class="audit-entry action-create p-3 rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge bg-primary me-2">ATTENDANCE</span>
+                                    Présence enregistrée
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    Présence détectée: <strong>Marie Martin</strong> - Cours MATH101
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-camera me-1"></i>
+                                    Reconnaissance faciale
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Aujourd'hui à 12:00
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewAuditDetails(4)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connexion enseignant -->
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-info"></div>
+                    <div class="audit-entry action-login p-3 rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge bg-info me-2">LOGIN</span>
+                                    Connexion enseignant
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    L'enseignant <strong>teacher1</strong> (Jean Dupont) s'est connecté
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    Aujourd'hui à 11:45
+                                    <i class="fas fa-map-marker-alt ms-2 me-1"></i>
+                                    IP: 192.168.1.100
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-info" onclick="viewAuditDetails(5)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initialisation système -->
+                <div class="timeline-item">
+                    <div class="timeline-marker bg-secondary"></div>
+                    <div class="audit-entry action-create p-3 rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    <span class="badge bg-secondary me-2">SYSTEM</span>
+                                    Initialisation système
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    Système de reconnaissance faciale initialisé avec succès
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-server me-1"></i>
+                                    Système automatique
+                                    <i class="fas fa-clock ms-2 me-1"></i>
+                                    Aujourd'hui à 10:00
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="viewAuditDetails(6)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <nav aria-label="Pagination audit">
+                <ul class="pagination justify-content-center mt-4">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" tabindex="-1">Précédent</a>
+                    </li>
+                    <li class="page-item active">
+                        <a class="page-link" href="#">1</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">2</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">3</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">Suivant</a>
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
 </div>
+
+<!-- Modal Détails Audit -->
+<div class="modal fade" id="auditDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de l'Activité</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="auditDetailsContent">
+                <!-- Contenu chargé dynamiquement -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <button type="button" class="btn btn-primary" onclick="exportAuditEntry()">
+                    <i class="fas fa-download me-1"></i>
+                    Exporter cette entrée
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterAudit() {
+        const actionFilter = document.getElementById('actionFilter').value;
+        const userFilter = document.getElementById('userFilter').value;
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        const searchTerm = document.getElementById('searchAudit').value;
+
+        showAlert('Filtres appliqués au journal d\'audit', 'success');
+    }
+
+    function refreshAudit() {
+        showAlert('Actualisation du journal d\'audit...', 'info');
+
+        // Simulation d'actualisation
+        setTimeout(() => {
+            showAlert('Journal d\'audit actualisé!', 'success');
+        }, 1000);
+    }
+
+    function exportAudit() {
+        showAlert('Export du journal d\'audit en cours...', 'info');
+
+        // Simulation d'export
+        setTimeout(() => {
+            showAlert('Journal d\'audit exporté avec succès!', 'success');
+        }, 2000);
+    }
+
+    function viewAuditDetails(entryId) {
+        const modalContent = document.getElementById('auditDetailsContent');
+
+        // Données d'exemple selon l'ID
+        const auditDetails = {
+            1: {
+                action: 'LOGIN',
+                user: 'admin',
+                timestamp: '2025-06-23 15:42:15',
+                ip: '127.0.0.1',
+                userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+                details: 'Connexion réussie depuis l\'interface web'
+            },
+            2: {
+                action: 'CREATE',
+                user: 'admin',
+                timestamp: '2025-06-23 14:30:22',
+                target: 'user:student1',
+                details: 'Création d\'un nouvel utilisateur étudiant',
+                data: '{"username": "student1", "role": "student", "name": "Marie Martin"}'
+            },
+            3: {
+                action: 'UPDATE',
+                user: 'teacher1',
+                timestamp: '2025-06-23 13:15:45',
+                target: 'course:MATH101',
+                details: 'Modification des informations du cours',
+                changes: '{"max_students": "25 → 30", "description": "Updated"}'
+            }
+        };
+
+        const entry = auditDetails[entryId] || auditDetails[1];
+
+        modalContent.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Informations Générales</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Action:</strong></td>
+                            <td><span class="badge bg-primary">${entry.action}</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Utilisateur:</strong></td>
+                            <td>${entry.user}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Horodatage:</strong></td>
+                            <td>${entry.timestamp}</td>
+                        </tr>
+                        ${entry.ip ? `<tr><td><strong>Adresse IP:</strong></td><td>${entry.ip}</td></tr>` : ''}
+                        ${entry.target ? `<tr><td><strong>Cible:</strong></td><td>${entry.target}</td></tr>` : ''}
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Détails Techniques</h6>
+                    <p class="text-muted">${entry.details}</p>
+                    ${entry.userAgent ? `<p><small><strong>User Agent:</strong><br>${entry.userAgent}</small></p>` : ''}
+                    ${entry.data ? `<h6 class="mt-3">Données:</h6><pre class="bg-light p-2 rounded"><code>${entry.data}</code></pre>` : ''}
+                    ${entry.changes ? `<h6 class="mt-3">Modifications:</h6><pre class="bg-light p-2 rounded"><code>${entry.changes}</code></pre>` : ''}
+                </div>
+            </div>
+        `;
+
+        const modal = new bootstrap.Modal(document.getElementById('auditDetailsModal'));
+        modal.show();
+    }
+
+    function exportAuditEntry() {
+        showAlert('Export de l\'entrée d\'audit...', 'info');
+
+        setTimeout(() => {
+            showAlert('Entrée d\'audit exportée!', 'success');
+        }, 1000);
+    }
+
+    // Animation des entrées au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const entries = document.querySelectorAll('.timeline-item');
+        entries.forEach((entry, index) => {
+            setTimeout(() => {
+                entry.style.opacity = '0';
+                entry.style.transform = 'translateY(20px)';
+                entry.style.transition = 'all 0.5s ease';
+
+                setTimeout(() => {
+                    entry.style.opacity = '1';
+                    entry.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 150);
+        });
+    });
+</script>
 {% endblock %}
