@@ -148,8 +148,55 @@
             </div>
         </div>
 
-        <!-- Présences en temps réel -->
+        <!-- Streaming vidéo et présences -->
         <div class="col-md-8">
+            <!-- Streaming vidéo -->
+            <div class="recognition-card mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-video me-2"></i>
+                        Flux Vidéo en Temps Réel
+                    </h5>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-success" id="startStreamBtn" onclick="startStreaming()">
+                            <i class="fas fa-play me-1"></i>
+                            Démarrer Caméra
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" id="stopStreamBtn" onclick="stopStreaming()" disabled>
+                            <i class="fas fa-stop me-1"></i>
+                            Arrêter Caméra
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <div id="videoContainer" style="position: relative; display: inline-block;">
+                        <img id="videoFeed"
+                             src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNhbcOpcmEgbm9uIGFjdGl2ZTwvdGV4dD48L3N2Zz4="
+                             alt="Flux vidéo"
+                             style="max-width: 100%; height: auto; border: 2px solid #ddd; border-radius: 8px;"
+                             onload="this.style.display='block'"
+                             onerror="this.style.display='block'">
+
+                        <!-- Overlay pour les contrôles -->
+                        <div id="videoOverlay" style="position: absolute; top: 10px; left: 10px; right: 10px;">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-warning" id="toggleDetectionBtn" onclick="toggleDetection()" disabled>
+                                        <i class="fas fa-search me-1"></i>
+                                        Activer Détection
+                                    </button>
+                                </div>
+                                <div>
+                                    <span class="badge bg-dark" id="streamStatus">Caméra Arrêtée</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Présences en temps réel -->
             <div class="recognition-card">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
@@ -215,6 +262,9 @@
 <script>
     let sessionStartTime = null;
     let sessionTimer = null;
+    let isStreaming = false;
+    let detectionEnabled = false;
+    let streamingInterval = null;
 
     function showStatus(message, type = 'info', showSpinner = false) {
         const alert = document.getElementById('statusAlert');
@@ -227,45 +277,181 @@
         spinner.style.display = showSpinner ? 'inline-block' : 'none';
     }
 
-    function startRecognition() {
-        showStatus('Démarrage de la reconnaissance faciale...', 'info', true);
-        
-        const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        
-        startBtn.disabled = true;
-        
-        fetch('/facial/api/start_recognition', {
+    function startStreaming() {
+        showStatus('Démarrage du streaming vidéo...', 'info', true);
+
+        const startStreamBtn = document.getElementById('startStreamBtn');
+        const stopStreamBtn = document.getElementById('stopStreamBtn');
+
+        startStreamBtn.disabled = true;
+
+        fetch('/facial/api/start_streaming', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                session_name: `Session ${new Date().toLocaleString('fr-FR')}`
-            })
+            }
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 showStatus(data.message, 'success');
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-                
-                // Démarrer le timer de session
-                sessionStartTime = new Date();
-                startSessionTimer();
-                
-                // Démarrer l'actualisation automatique
-                startAutoRefresh();
+                isStreaming = true;
+                startStreamBtn.disabled = true;
+                stopStreamBtn.disabled = false;
+                document.getElementById('toggleDetectionBtn').disabled = false;
+
+                // Démarrer le flux vidéo
+                startVideoFeed();
+                updateStreamStatus('Caméra Active');
             } else {
                 showStatus(data.message, 'danger');
-                startBtn.disabled = false;
+                startStreamBtn.disabled = false;
             }
         })
         .catch(error => {
             showStatus('Erreur de connexion: ' + error.message, 'danger');
-            startBtn.disabled = false;
+            startStreamBtn.disabled = false;
         });
+    }
+
+    function stopStreaming() {
+        showStatus('Arrêt du streaming vidéo...', 'warning', true);
+
+        const startStreamBtn = document.getElementById('startStreamBtn');
+        const stopStreamBtn = document.getElementById('stopStreamBtn');
+
+        stopStreamBtn.disabled = true;
+
+        fetch('/facial/api/stop_streaming', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                isStreaming = false;
+                detectionEnabled = false;
+                startStreamBtn.disabled = false;
+                stopStreamBtn.disabled = true;
+                document.getElementById('toggleDetectionBtn').disabled = true;
+
+                // Arrêter le flux vidéo
+                stopVideoFeed();
+                updateStreamStatus('Caméra Arrêtée');
+                updateDetectionButton();
+            } else {
+                showStatus(data.message, 'danger');
+                stopStreamBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur de connexion: ' + error.message, 'danger');
+            stopStreamBtn.disabled = false;
+        });
+    }
+
+    function toggleDetection() {
+        const action = detectionEnabled ? 'disable' : 'enable';
+        const actionText = detectionEnabled ? 'Désactivation' : 'Activation';
+
+        showStatus(`${actionText} de la détection faciale...`, 'info', true);
+
+        fetch(`/facial/api/${action}_detection`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                detectionEnabled = !detectionEnabled;
+                updateDetectionButton();
+
+                if (detectionEnabled) {
+                    // Démarrer l'actualisation automatique des présences
+                    startAutoRefresh();
+                } else {
+                    stopAutoRefresh();
+                }
+            } else {
+                showStatus(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur: ' + error.message, 'danger');
+        });
+    }
+
+    function startVideoFeed() {
+        const videoFeed = document.getElementById('videoFeed');
+        videoFeed.src = '/facial/video_feed?' + new Date().getTime();
+
+        // Actualiser le statut périodiquement
+        streamingInterval = setInterval(updateStreamingStatus, 2000);
+    }
+
+    function stopVideoFeed() {
+        const videoFeed = document.getElementById('videoFeed');
+        videoFeed.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNhbcOpcmEgbm9uIGFjdGl2ZTwvdGV4dD48L3N2Zz4=";
+
+        if (streamingInterval) {
+            clearInterval(streamingInterval);
+            streamingInterval = null;
+        }
+    }
+
+    function updateStreamStatus(status) {
+        document.getElementById('streamStatus').textContent = status;
+    }
+
+    function updateDetectionButton() {
+        const btn = document.getElementById('toggleDetectionBtn');
+        if (detectionEnabled) {
+            btn.innerHTML = '<i class="fas fa-stop me-1"></i>Arrêter Détection';
+            btn.className = 'btn btn-sm btn-danger';
+        } else {
+            btn.innerHTML = '<i class="fas fa-search me-1"></i>Activer Détection';
+            btn.className = 'btn btn-sm btn-warning';
+        }
+    }
+
+    function updateStreamingStatus() {
+        fetch('/facial/api/streaming_status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const status = data.status;
+                document.getElementById('knownFacesCount').textContent = status.known_faces_count;
+
+                if (status.detection_enabled) {
+                    updateStreamStatus(`Détection Active (${status.detections.length} visages)`);
+                } else if (status.is_streaming) {
+                    updateStreamStatus('Caméra Active');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la mise à jour du statut:', error);
+        });
+    }
+
+    function startRecognition() {
+        // Cette fonction démarre maintenant le streaming ET la détection
+        if (!isStreaming) {
+            startStreaming();
+            setTimeout(() => {
+                if (isStreaming) {
+                    toggleDetection();
+                }
+            }, 2000);
+        } else if (!detectionEnabled) {
+            toggleDetection();
+        }
     }
 
     function stopRecognition() {

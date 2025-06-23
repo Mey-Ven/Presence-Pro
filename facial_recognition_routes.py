@@ -7,12 +7,14 @@ Author: Facial Attendance System
 Date: 2025-06-23
 """
 
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash, Response
 from auth_manager import login_required, role_required, get_current_user
 from facial_recognition_system import facial_recognition_system
+from video_streaming import get_video_streamer
 import os
 import json
 from datetime import datetime, date
+import time
 
 # Créer le blueprint
 facial_bp = Blueprint('facial', __name__, url_prefix='/facial')
@@ -351,3 +353,111 @@ def api_camera_test():
 
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erreur de caméra: {str(e)}'})
+
+@facial_bp.route('/api/start_streaming', methods=['POST'])
+@login_required
+@role_required('admin', 'teacher')
+def api_start_streaming():
+    """API pour démarrer le streaming vidéo"""
+    try:
+        streamer = get_video_streamer(facial_recognition_system)
+        success, message = streamer.start_streaming()
+
+        if success:
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'message': message}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@facial_bp.route('/api/stop_streaming', methods=['POST'])
+@login_required
+@role_required('admin', 'teacher')
+def api_stop_streaming():
+    """API pour arrêter le streaming vidéo"""
+    try:
+        streamer = get_video_streamer(facial_recognition_system)
+        success, message = streamer.stop_streaming()
+
+        if success:
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'message': message}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@facial_bp.route('/api/enable_detection', methods=['POST'])
+@login_required
+@role_required('admin', 'teacher')
+def api_enable_detection():
+    """API pour activer la détection faciale"""
+    try:
+        streamer = get_video_streamer(facial_recognition_system)
+        success, message = streamer.enable_detection()
+
+        if success:
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'message': message}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@facial_bp.route('/api/disable_detection', methods=['POST'])
+@login_required
+@role_required('admin', 'teacher')
+def api_disable_detection():
+    """API pour désactiver la détection faciale"""
+    try:
+        streamer = get_video_streamer(facial_recognition_system)
+        success, message = streamer.disable_detection()
+
+        if success:
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'message': message}), 400
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@facial_bp.route('/video_feed')
+@login_required
+@role_required('admin', 'teacher')
+def video_feed():
+    """Stream vidéo en temps réel"""
+    def generate_frames():
+        streamer = get_video_streamer(facial_recognition_system)
+
+        while True:
+            frame_base64 = streamer.get_current_frame_base64()
+
+            if frame_base64:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' +
+                       base64.b64decode(frame_base64) + b'\r\n')
+            else:
+                # Frame par défaut si pas de caméra
+                yield (b'--frame\r\n'
+                       b'Content-Type: text/plain\r\n\r\n'
+                       b'No camera feed available\r\n')
+
+            time.sleep(0.033)  # ~30 FPS
+
+    return Response(generate_frames(),
+                   mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@facial_bp.route('/api/streaming_status')
+@login_required
+@role_required('admin', 'teacher')
+def api_streaming_status():
+    """API pour obtenir l'état du streaming"""
+    try:
+        streamer = get_video_streamer(facial_recognition_system)
+        status = streamer.get_detection_info()
+
+        return jsonify({'success': True, 'status': status})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500

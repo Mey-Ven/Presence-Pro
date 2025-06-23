@@ -33,6 +33,9 @@ class FacialRecognitionSystem:
         
         # Charger les encodages existants
         self.load_encodings()
+
+        # Recharger automatiquement les encodages au démarrage
+        print("🔄 Rechargement automatique des encodages au démarrage...")
     
     def get_connection(self):
         """Obtenir une connexion à la base de données"""
