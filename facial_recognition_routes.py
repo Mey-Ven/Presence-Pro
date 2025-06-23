@@ -161,16 +161,7 @@ def api_recognition_status():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@facial_bp.route('/api/today_attendance')
-@login_required
-def api_today_attendance():
-    """API pour obtenir les présences d'aujourd'hui"""
-    try:
-        attendance = facial_recognition_system.get_today_attendance()
-        return jsonify({'success': True, 'attendance': attendance})
-        
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+
 
 @facial_bp.route('/students')
 @login_required
@@ -452,12 +443,77 @@ def video_feed():
 @login_required
 @role_required('admin', 'teacher')
 def api_streaming_status():
-    """API pour obtenir l'état du streaming"""
+    """API pour obtenir l'état du streaming avec statistiques complètes"""
     try:
         streamer = get_video_streamer(facial_recognition_system)
         status = streamer.get_detection_info()
 
+        # Ajouter les statistiques de présence
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute('''
+            SELECT COUNT(*) FROM presences
+            WHERE date = ?
+        ''', (today,))
+        today_count = cursor.fetchone()[0]
+
+        cursor.execute('SELECT COUNT(*) FROM presences')
+        total_count = cursor.fetchone()[0]
+
+        # Ajouter les informations supplémentaires
+        status.update({
+            'today_attendance_count': today_count,
+            'total_detections': total_count,
+            'camera_index': 0,  # Caméra par défaut (FaceTime HD)
+            'known_faces_count': len(facial_recognition_system.known_face_encodings),
+            'system_ready': len(facial_recognition_system.known_face_encodings) > 0
+        })
+
+        conn.close()
+
         return jsonify({'success': True, 'status': status})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@facial_bp.route('/api/today_attendance_live')
+@login_required
+@role_required('admin', 'teacher')
+def api_today_attendance_live():
+    """API pour obtenir les présences d'aujourd'hui"""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute('''
+            SELECT p.time, u.first_name, u.last_name, p.detection_confidence, p.status
+            FROM presences p
+            JOIN users u ON p.student_id = u.id
+            WHERE p.date = ?
+            ORDER BY p.time DESC
+        ''', (today,))
+
+        results = cursor.fetchall()
+        attendance = []
+
+        for row in results:
+            attendance.append({
+                'time': row[0],
+                'student_name': f"{row[1]} {row[2]}",
+                'confidence': row[3],
+                'status': row[4]
+            })
+
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'attendance': attendance,
+            'count': len(attendance)
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500

@@ -170,26 +170,38 @@
                 </div>
 
                 <div class="text-center">
-                    <div id="videoContainer" style="position: relative; display: inline-block;">
+                    <div id="videoContainer" style="position: relative; display: inline-block; max-width: 100%;">
                         <img id="videoFeed"
                              src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxOCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNhbcOpcmEgbm9uIGFjdGl2ZTwvdGV4dD48L3N2Zz4="
                              alt="Flux vidéo"
-                             style="max-width: 100%; height: auto; border: 2px solid #ddd; border-radius: 8px;"
+                             style="width: 100%; max-width: 640px; height: auto; border: 3px solid #007bff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,123,255,0.3);"
                              onload="this.style.display='block'"
                              onerror="this.style.display='block'">
 
                         <!-- Overlay pour les contrôles -->
-                        <div id="videoOverlay" style="position: absolute; top: 10px; left: 10px; right: 10px;">
-                            <div class="d-flex justify-content-between">
+                        <div id="videoOverlay" style="position: absolute; top: 15px; left: 15px; right: 15px;">
+                            <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <button type="button" class="btn btn-sm btn-warning" id="toggleDetectionBtn" onclick="toggleDetection()" disabled>
+                                    <button type="button" class="btn btn-sm btn-warning shadow" id="toggleDetectionBtn" onclick="toggleDetection()" disabled>
                                         <i class="fas fa-search me-1"></i>
                                         Activer Détection
                                     </button>
                                 </div>
                                 <div>
-                                    <span class="badge bg-dark" id="streamStatus">Caméra Arrêtée</span>
+                                    <span class="badge bg-dark fs-6 px-3 py-2" id="streamStatus">Caméra Arrêtée</span>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Overlay pour les informations de détection -->
+                        <div id="detectionInfo" style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
+                            <div class="bg-dark bg-opacity-75 text-white p-2 rounded" id="detectionStats" style="display: none;">
+                                <small>
+                                    <i class="fas fa-users me-1"></i>
+                                    <span id="facesDetected">0</span> visages détectés |
+                                    <i class="fas fa-brain me-1"></i>
+                                    <span id="knownFacesCount">0</span> visages connus
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -428,11 +440,29 @@
                 const status = data.status;
                 document.getElementById('knownFacesCount').textContent = status.known_faces_count;
 
-                if (status.detection_enabled) {
-                    updateStreamStatus(`Détection Active (${status.detections.length} visages)`);
-                } else if (status.is_streaming) {
-                    updateStreamStatus('Caméra Active');
+                // Mettre à jour les statistiques de détection
+                if (status.detections && status.detections.length > 0) {
+                    document.getElementById('facesDetected').textContent = status.detections.length;
+                    document.getElementById('detectionStats').style.display = 'block';
+                } else {
+                    document.getElementById('facesDetected').textContent = '0';
+                    if (!status.detection_enabled) {
+                        document.getElementById('detectionStats').style.display = 'none';
+                    }
                 }
+
+                // Mettre à jour le statut du streaming
+                if (status.detection_enabled) {
+                    updateStreamStatus(`🔍 Détection Active (${status.detections ? status.detections.length : 0} visages)`);
+                } else if (status.is_streaming) {
+                    updateStreamStatus('📹 Caméra Active');
+                } else {
+                    updateStreamStatus('📹 Caméra Arrêtée');
+                }
+
+                // Mettre à jour les statistiques globales
+                document.getElementById('todayAttendanceCount').textContent = status.today_attendance_count || 0;
+                document.getElementById('totalDetectionsCount').textContent = status.total_detections || 0;
             }
         })
         .catch(error => {
@@ -525,7 +555,7 @@
     }
 
     function refreshAttendance() {
-        fetch('/facial/api/today_attendance')
+        fetch('/facial/api/today_attendance_live')
         .then(response => response.json())
         .then(data => {
             if (data.success) {

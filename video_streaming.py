@@ -27,6 +27,14 @@ class VideoStreamer:
         self.frame_lock = threading.Lock()
         self.detection_enabled = False
         self.last_detections = []
+        self.last_detection_time = {}  # Pour éviter les détections répétées
+        self.detection_cooldown = 30  # 30 secondes entre les détections du même visage
+        self.frame_count = 0
+        self.detection_stats = {
+            'total_frames': 0,
+            'frames_with_faces': 0,
+            'successful_recognitions': 0
+        }
         
     def start_streaming(self):
         """Démarrer le streaming vidéo"""
@@ -148,25 +156,33 @@ class VideoStreamer:
                             confidence = 1 - face_distances[best_match_index]
                             color = (255, 0, 0)  # Bleu pour visage reconnu
                             
-                            # Enregistrer la présence (marquée comme absent selon les exigences)
+                            # Enregistrer la présence (marquée comme présent)
                             student_id = self.facial_system.known_face_ids[best_match_index]
-                            self._record_attendance(student_id, confidence, "Absent")
+                            self._record_attendance(student_id, confidence, "Present")
 
-                            print(f"🎯 RECONNAISSANCE: {name} détecté avec {confidence:.1%} de confiance - Marqué ABSENT")
+                            print(f"🎯 RECONNAISSANCE: {name} détecté avec {confidence:.1%} de confiance - Marqué PRÉSENT")
                 
-                # Dessiner le rectangle et le nom
-                cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
-                
-                # Fond pour le texte
-                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), color, cv2.FILLED)
-                
+                # Dessiner le rectangle bleu autour du visage
+                cv2.rectangle(frame, (left, top), (right, bottom), color, 3)
+
+                # Fond semi-transparent pour le texte
+                overlay = frame.copy()
+                cv2.rectangle(overlay, (left, bottom - 40), (right, bottom), color, -1)
+                cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+
                 # Texte avec nom et confiance
                 text = f"{name}"
                 if confidence > 0:
                     text += f" ({confidence:.1%})"
-                
-                cv2.putText(frame, text, (left + 6, bottom - 6), 
-                           cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+
+                # Texte principal (nom)
+                cv2.putText(frame, text, (left + 6, bottom - 20),
+                           cv2.FONT_HERSHEY_DUPLEX, 0.7, (255, 255, 255), 2)
+
+                # Texte secondaire (statut)
+                status_text = "PRÉSENT" if name != "Inconnu" else "NON RECONNU"
+                cv2.putText(frame, status_text, (left + 6, bottom - 5),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
                 
                 current_detections.append({
                     'name': name,
@@ -212,7 +228,7 @@ class VideoStreamer:
         cv2.putText(frame, timestamp, (width - 200, height - 20), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
     
-    def _record_attendance(self, student_id, confidence, status="Absent"):
+    def _record_attendance(self, student_id, confidence, status="Present"):
         """Enregistrer une présence (marquée comme absence selon les exigences)"""
         try:
             # Éviter les doublons pour la même journée
