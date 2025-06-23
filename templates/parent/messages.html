@@ -1,0 +1,284 @@
+{% extends "base_role.html" %}
+
+{% block title %}Messages - Espace Parent{% endblock %}
+
+{% block page_title %}Messagerie{% endblock %}
+
+{% block extra_css %}
+<style>
+    .message-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .message-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .message-item {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 0 8px 8px 0;
+        transition: transform 0.2s ease;
+    }
+    
+    .message-item:hover {
+        transform: translateX(5px);
+    }
+    
+    .message-item.unread {
+        border-left-color: #28a745;
+        background: #f8fff9;
+    }
+    
+    .message-item.urgent {
+        border-left-color: #dc3545;
+        background: #fff5f5;
+    }
+    
+    .message-meta {
+        font-size: 0.85em;
+        color: #6c757d;
+    }
+    
+    .compose-form {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête de messagerie -->
+    <div class="message-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4 class="mb-2">
+                    <i class="fas fa-envelope me-2"></i>
+                    Messagerie Parent
+                </h4>
+                <p class="mb-0">
+                    <i class="fas fa-inbox me-2"></i>
+                    {{ messages|length }} messages
+                    <span class="ms-3">
+                        <i class="fas fa-envelope me-2"></i>
+                        {{ messages|selectattr('is_read', 'equalto', false)|list|length }} non lus
+                    </span>
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <button type="button" class="btn btn-light" onclick="toggleComposeForm()">
+                    <i class="fas fa-pen me-2"></i>
+                    Nouveau Message
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire de composition -->
+    <div class="compose-form" id="composeForm">
+        <h5 class="mb-3">
+            <i class="fas fa-pen me-2"></i>
+            Nouveau Message
+        </h5>
+        
+        <form onsubmit="sendMessage(event)">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Destinataire</label>
+                        <select class="form-select" id="recipient" required>
+                            <option value="">Sélectionner un destinataire</option>
+                            <option value="admin">Administration</option>
+                            <option value="teacher">Enseignant Principal</option>
+                            <option value="secretary">Secrétariat</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Priorité</label>
+                        <select class="form-select" id="priority">
+                            <option value="normal">Normale</option>
+                            <option value="urgent">Urgente</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Sujet</label>
+                <input type="text" class="form-control" id="subject" required 
+                       placeholder="Objet du message">
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Message</label>
+                <textarea class="form-control" id="messageContent" rows="5" required
+                         placeholder="Votre message..."></textarea>
+            </div>
+            
+            <div class="text-end">
+                <button type="button" class="btn btn-secondary me-2" onclick="hideComposeForm()">
+                    Annuler
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    Envoyer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des messages -->
+    <div class="message-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">
+                <i class="fas fa-inbox me-2"></i>
+                Messages Reçus
+            </h5>
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="markAllAsRead()">
+                    <i class="fas fa-check me-1"></i>
+                    Tout marquer lu
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshMessages()">
+                    <i class="fas fa-sync me-1"></i>
+                    Actualiser
+                </button>
+            </div>
+        </div>
+
+        <div id="messagesList">
+            {% if messages %}
+                {% for message in messages %}
+                <div class="message-item {{ 'unread' if not message.is_read else '' }} {{ 'urgent' if message.priority == 'urgent' else '' }}"
+                     onclick="openMessage('{{ message.id }}')">
+                    <div class="row align-items-center">
+                        <div class="col-md-1">
+                            {% if not message.is_read %}
+                            <i class="fas fa-circle text-success" style="font-size: 0.5em;"></i>
+                            {% else %}
+                            <i class="far fa-circle text-muted" style="font-size: 0.5em;"></i>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>{{ message.sender_name or 'Administration' }}</strong>
+                            {% if message.priority == 'urgent' %}
+                            <span class="badge bg-danger ms-2">Urgent</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-5">
+                            <div class="fw-bold">{{ message.subject }}</div>
+                            <div class="message-meta">{{ message.content[:80] }}{% if message.content|length > 80 %}...{% endif %}</div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="message-meta">{{ message.created_at[:10] if message.created_at else 'Aujourd\'hui' }}</div>
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <i class="fas fa-chevron-right text-muted"></i>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucun message</h5>
+                    <p class="text-muted">Vous n'avez pas encore reçu de messages</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Messages envoyés -->
+    <div class="message-card">
+        <h5 class="mb-3">
+            <i class="fas fa-paper-plane me-2"></i>
+            Messages Envoyés
+        </h5>
+        
+        <div class="text-center py-4">
+            <i class="fas fa-paper-plane fa-3x text-muted mb-3"></i>
+            <h6 class="text-muted">Messages envoyés</h6>
+            <p class="text-muted">Vos messages envoyés apparaîtront ici</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleComposeForm() {
+        const form = document.getElementById('composeForm');
+        if (form.style.display === 'none' || form.style.display === '') {
+            form.style.display = 'block';
+            document.getElementById('recipient').focus();
+        } else {
+            hideComposeForm();
+        }
+    }
+
+    function hideComposeForm() {
+        document.getElementById('composeForm').style.display = 'none';
+        document.getElementById('composeForm').querySelector('form').reset();
+    }
+
+    function sendMessage(event) {
+        event.preventDefault();
+        
+        const recipient = document.getElementById('recipient').value;
+        const subject = document.getElementById('subject').value;
+        const content = document.getElementById('messageContent').value;
+        const priority = document.getElementById('priority').value;
+        
+        // Simulation d'envoi
+        alert(`Message envoyé avec succès!\n\nDestinataire: ${recipient}\nSujet: ${subject}\nPriorité: ${priority}`);
+        hideComposeForm();
+    }
+
+    function openMessage(messageId) {
+        alert(`Ouverture du message ${messageId}\n\nCette fonctionnalité sera implémentée prochainement.`);
+        
+        // Marquer comme lu visuellement
+        event.currentTarget.classList.remove('unread');
+        const unreadIcon = event.currentTarget.querySelector('.fa-circle');
+        if (unreadIcon) {
+            unreadIcon.className = 'far fa-circle text-muted';
+        }
+    }
+
+    function markAllAsRead() {
+        const unreadMessages = document.querySelectorAll('.message-item.unread');
+        unreadMessages.forEach(message => {
+            message.classList.remove('unread');
+            const unreadIcon = message.querySelector('.fa-circle');
+            if (unreadIcon) {
+                unreadIcon.className = 'far fa-circle text-muted';
+            }
+        });
+        
+        alert('Tous les messages ont été marqués comme lus');
+    }
+
+    function refreshMessages() {
+        alert('Actualisation des messages...');
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+</script>
+{% endblock %}

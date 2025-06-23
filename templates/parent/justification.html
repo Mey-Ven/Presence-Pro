@@ -1,0 +1,230 @@
+{% extends "base_role.html" %}
+
+{% block title %}Justification d'Absence - Espace Parent{% endblock %}
+
+{% block page_title %}Justification d'Absence{% endblock %}
+
+{% block extra_css %}
+<style>
+    .justification-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .child-selector {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .justification-item {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .status-badge {
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-approved { background: #d4edda; color: #155724; }
+    .status-rejected { background: #f8d7da; color: #721c24; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Sélection de l'enfant -->
+    <div class="child-selector">
+        <h4 class="mb-3">
+            <i class="fas fa-child me-2"></i>
+            Justification d'Absence
+        </h4>
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <select class="form-select" id="childSelect" onchange="loadChildJustifications()">
+                    {% if children %}
+                        {% for child in children %}
+                        <option value="{{ child.id }}" {{ 'selected' if child.id == selected_child_id else '' }}>
+                            {{ child.full_name }} - {{ child.class_name or 'Classe non assignée' }}
+                        </option>
+                        {% endfor %}
+                    {% else %}
+                        <option value="">Aucun enfant trouvé</option>
+                    {% endif %}
+                </select>
+            </div>
+            <div class="col-md-4 text-end">
+                <button type="button" class="btn btn-light" onclick="showNewJustificationModal()">
+                    <i class="fas fa-plus me-2"></i>
+                    Nouvelle Justification
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire de nouvelle justification -->
+    <div class="justification-card" id="newJustificationForm" style="display: none;">
+        <h5 class="mb-3">
+            <i class="fas fa-file-medical me-2"></i>
+            Nouvelle Justification d'Absence
+        </h5>
+        
+        <form onsubmit="submitJustification(event)">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Date d'absence</label>
+                        <input type="date" class="form-control" id="absenceDate" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Motif</label>
+                        <select class="form-select" id="absenceReason" required>
+                            <option value="">Sélectionner un motif</option>
+                            <option value="Maladie">Maladie</option>
+                            <option value="Rendez-vous médical">Rendez-vous médical</option>
+                            <option value="Urgence familiale">Urgence familiale</option>
+                            <option value="Voyage">Voyage</option>
+                            <option value="Autre">Autre</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Description détaillée</label>
+                <textarea class="form-control" id="absenceDescription" rows="4" 
+                         placeholder="Veuillez fournir des détails sur l'absence..."></textarea>
+            </div>
+            
+            <div class="text-end">
+                <button type="button" class="btn btn-secondary me-2" onclick="hideNewJustificationForm()">
+                    Annuler
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    Soumettre la Justification
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des justifications -->
+    <div class="justification-card">
+        <h5 class="mb-3">
+            <i class="fas fa-list me-2"></i>
+            Justifications Soumises
+        </h5>
+        
+        <div id="justificationsList">
+            {% if justifications %}
+                {% for justification in justifications %}
+                <div class="justification-item">
+                    <div class="row align-items-center">
+                        <div class="col-md-2">
+                            <strong>{{ justification.absence_date }}</strong>
+                        </div>
+                        <div class="col-md-3">
+                            <span class="badge bg-primary">{{ justification.reason }}</span>
+                        </div>
+                        <div class="col-md-4">
+                            <small class="text-muted">{{ justification.description[:50] }}{% if justification.description|length > 50 %}...{% endif %}</small>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="status-badge status-{{ justification.status }}">
+                                {% if justification.status == 'pending' %}
+                                    En Attente
+                                {% elif justification.status == 'approved' %}
+                                    Approuvée
+                                {% elif justification.status == 'rejected' %}
+                                    Rejetée
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="col-md-1 text-end">
+                            <button class="btn btn-sm btn-outline-info" onclick="viewJustificationDetails('{{ justification.id }}')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-file-medical fa-3x text-muted mb-3"></i>
+                    <h6 class="text-muted">Aucune justification soumise</h6>
+                    <p class="text-muted">Les justifications d'absence apparaîtront ici</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showNewJustificationModal() {
+        document.getElementById('newJustificationForm').style.display = 'block';
+        document.getElementById('absenceDate').focus();
+    }
+
+    function hideNewJustificationForm() {
+        document.getElementById('newJustificationForm').style.display = 'none';
+        document.getElementById('newJustificationForm').querySelector('form').reset();
+    }
+
+    function submitJustification(event) {
+        event.preventDefault();
+        
+        const childId = document.getElementById('childSelect').value;
+        const absenceDate = document.getElementById('absenceDate').value;
+        const reason = document.getElementById('absenceReason').value;
+        const description = document.getElementById('absenceDescription').value;
+        
+        if (!childId) {
+            alert('Veuillez sélectionner un enfant');
+            return;
+        }
+        
+        // Simulation de soumission
+        alert('Justification soumise avec succès!\n\nDate: ' + absenceDate + '\nMotif: ' + reason);
+        hideNewJustificationForm();
+        
+        // Recharger la page pour afficher la nouvelle justification
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+
+    function loadChildJustifications() {
+        const childId = document.getElementById('childSelect').value;
+        if (childId) {
+            // Rediriger avec le nouvel enfant sélectionné
+            window.location.href = `{{ url_for('parent.justification') }}?child_id=${childId}`;
+        }
+    }
+
+    function viewJustificationDetails(justificationId) {
+        alert(`Affichage des détails de la justification ${justificationId}\n\nCette fonctionnalité sera implémentée prochainement.`);
+    }
+
+    // Définir la date d'aujourd'hui par défaut
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('absenceDate').value = today;
+    });
+</script>
+{% endblock %}

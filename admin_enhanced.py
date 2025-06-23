@@ -132,7 +132,8 @@ def courses_management():
 
         # Compter les inscriptions
         cursor.execute('SELECT COUNT(*) FROM enrollments WHERE course_id = ?', (course_id,))
-        enrolled_count = cursor.fetchone()[0] if cursor.fetchone() else 0
+        result = cursor.fetchone()
+        enrolled_count = result[0] if result else 0
 
         courses_data.append({
             'id': row[0],

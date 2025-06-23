@@ -412,30 +412,16 @@ def get_student_attendance_stats(student_id):
     cursor = conn.cursor()
     
     try:
-        # Get student's full name
+        # Get attendance statistics directly by student_id
         cursor.execute('''
-            SELECT e.prenom || ' ' || e.nom as full_name
-            FROM students_extended se
-            JOIN etudiants e ON se.etudiant_id = e.id_etudiant
-            WHERE se.id_student = ?
-        ''', (student_id,))
-        
-        student_name_result = cursor.fetchone()
-        if not student_name_result:
-            return {}
-        
-        student_name = student_name_result[0]
-        
-        # Get attendance statistics
-        cursor.execute('''
-            SELECT 
+            SELECT
                 COUNT(*) as total_days,
                 COUNT(DISTINCT date) as unique_days,
                 MIN(date) as first_attendance,
                 MAX(date) as last_attendance
             FROM presences
-            WHERE nom = ?
-        ''', (student_name,))
+            WHERE student_id = ?
+        ''', (student_id,))
         
         result = cursor.fetchone()
         

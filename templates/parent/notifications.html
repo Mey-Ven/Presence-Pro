@@ -1,0 +1,364 @@
+{% extends "base_role.html" %}
+
+{% block title %}Notifications - Espace Parent{% endblock %}
+
+{% block page_title %}Centre de Notifications{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .notification-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .notification-item {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-bottom: 15px;
+        border-radius: 0 8px 8px 0;
+        transition: all 0.3s ease;
+    }
+    
+    .notification-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+    
+    .notification-item.unread {
+        border-left-color: #28a745;
+        background: #f8fff9;
+    }
+    
+    .notification-item.urgent {
+        border-left-color: #dc3545;
+        background: #fff5f5;
+    }
+    
+    .notification-item.info {
+        border-left-color: #17a2b8;
+        background: #f0fcff;
+    }
+    
+    .notification-item.warning {
+        border-left-color: #ffc107;
+        background: #fffdf0;
+    }
+    
+    .notification-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+    }
+    
+    .icon-attendance { background: #28a745; }
+    .icon-grade { background: #007bff; }
+    .icon-message { background: #6f42c1; }
+    .icon-event { background: #fd7e14; }
+    .icon-alert { background: #dc3545; }
+    
+    .notification-meta {
+        font-size: 0.85em;
+        color: #6c757d;
+    }
+    
+    .filter-tabs {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête des notifications -->
+    <div class="notification-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h4 class="mb-2">
+                    <i class="fas fa-bell me-2"></i>
+                    Centre de Notifications
+                </h4>
+                <p class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    {{ notifications|length }} notifications
+                    <span class="ms-3">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        {{ notifications|selectattr('is_read', 'equalto', false)|list|length }} non lues
+                    </span>
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-light" onclick="markAllAsRead()">
+                        <i class="fas fa-check me-2"></i>
+                        Tout marquer lu
+                    </button>
+                    <button type="button" class="btn btn-outline-light" onclick="refreshNotifications()">
+                        <i class="fas fa-sync me-2"></i>
+                        Actualiser
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-tabs">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="notificationFilter" id="filterAll" checked onchange="filterNotifications('all')">
+                    <label class="btn btn-outline-primary" for="filterAll">
+                        <i class="fas fa-list me-1"></i>Toutes
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="notificationFilter" id="filterUnread" onchange="filterNotifications('unread')">
+                    <label class="btn btn-outline-success" for="filterUnread">
+                        <i class="fas fa-envelope me-1"></i>Non lues
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="notificationFilter" id="filterUrgent" onchange="filterNotifications('urgent')">
+                    <label class="btn btn-outline-danger" for="filterUrgent">
+                        <i class="fas fa-exclamation-triangle me-1"></i>Urgentes
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="notificationFilter" id="filterToday" onchange="filterNotifications('today')">
+                    <label class="btn btn-outline-info" for="filterToday">
+                        <i class="fas fa-calendar-day me-1"></i>Aujourd'hui
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-4 text-end">
+                <select class="form-select form-select-sm" onchange="filterByChild(this.value)">
+                    <option value="">Tous les enfants</option>
+                    {% if children %}
+                        {% for child in children %}
+                        <option value="{{ child.id }}">{{ child.full_name }}</option>
+                        {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des notifications -->
+    <div class="notification-card">
+        <div id="notificationsList">
+            {% if notifications %}
+                {% for notification in notifications %}
+                <div class="notification-item {{ 'unread' if not notification.is_read else '' }} {{ notification.type or 'info' }}"
+                     data-type="{{ notification.type or 'info' }}" 
+                     data-read="{{ notification.is_read|lower }}"
+                     data-date="{{ notification.created_at[:10] if notification.created_at else '' }}"
+                     onclick="openNotification('{{ notification.id }}')">
+                    <div class="row align-items-center">
+                        <div class="col-md-1">
+                            <div class="notification-icon icon-{{ notification.category or 'info' }}">
+                                {% if notification.category == 'attendance' %}
+                                    <i class="fas fa-user-check"></i>
+                                {% elif notification.category == 'grade' %}
+                                    <i class="fas fa-graduation-cap"></i>
+                                {% elif notification.category == 'message' %}
+                                    <i class="fas fa-envelope"></i>
+                                {% elif notification.category == 'event' %}
+                                    <i class="fas fa-calendar"></i>
+                                {% elif notification.category == 'alert' %}
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                {% else %}
+                                    <i class="fas fa-info"></i>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="fw-bold">{{ notification.title or 'Notification' }}</div>
+                            <div class="notification-meta mb-1">{{ notification.message[:100] }}{% if notification.message|length > 100 %}...{% endif %}</div>
+                            <div class="notification-meta">
+                                <i class="fas fa-user me-1"></i>{{ notification.child_name or 'Général' }}
+                                <span class="ms-3">
+                                    <i class="fas fa-clock me-1"></i>{{ notification.created_at[:16] if notification.created_at else 'Maintenant' }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            {% if notification.priority == 'urgent' %}
+                            <span class="badge bg-danger">Urgent</span>
+                            {% elif notification.priority == 'high' %}
+                            <span class="badge bg-warning">Important</span>
+                            {% else %}
+                            <span class="badge bg-info">Normal</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-1 text-end">
+                            {% if not notification.is_read %}
+                            <i class="fas fa-circle text-success" style="font-size: 0.5em;"></i>
+                            {% else %}
+                            <i class="far fa-circle text-muted" style="font-size: 0.5em;"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-bell-slash fa-4x text-muted mb-3"></i>
+                    <h5 class="text-muted">Aucune notification</h5>
+                    <p class="text-muted">Vous n'avez pas encore reçu de notifications</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Paramètres de notification -->
+    <div class="notification-card">
+        <h5 class="mb-3">
+            <i class="fas fa-cog me-2"></i>
+            Paramètres de Notification
+        </h5>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                    <label class="form-check-label" for="emailNotifications">
+                        Notifications par email
+                    </label>
+                </div>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="attendanceNotifications" checked>
+                    <label class="form-check-label" for="attendanceNotifications">
+                        Notifications de présence
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="gradeNotifications" checked>
+                    <label class="form-check-label" for="gradeNotifications">
+                        Notifications de notes
+                    </label>
+                </div>
+                
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="eventNotifications" checked>
+                    <label class="form-check-label" for="eventNotifications">
+                        Notifications d'événements
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-end">
+            <button type="button" class="btn btn-primary" onclick="saveNotificationSettings()">
+                <i class="fas fa-save me-2"></i>
+                Sauvegarder les Paramètres
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterNotifications(type) {
+        const notifications = document.querySelectorAll('.notification-item');
+        const today = new Date().toISOString().split('T')[0];
+        
+        notifications.forEach(notification => {
+            let show = false;
+            
+            switch(type) {
+                case 'all':
+                    show = true;
+                    break;
+                case 'unread':
+                    show = notification.dataset.read === 'false';
+                    break;
+                case 'urgent':
+                    show = notification.classList.contains('urgent');
+                    break;
+                case 'today':
+                    show = notification.dataset.date === today;
+                    break;
+            }
+            
+            notification.style.display = show ? 'block' : 'none';
+        });
+    }
+
+    function filterByChild(childId) {
+        // Cette fonction filtrerait par enfant si implémentée
+        if (childId) {
+            alert(`Filtrage par enfant ${childId} - Fonctionnalité à implémenter`);
+        } else {
+            // Afficher toutes les notifications
+            filterNotifications('all');
+            document.getElementById('filterAll').checked = true;
+        }
+    }
+
+    function openNotification(notificationId) {
+        alert(`Ouverture de la notification ${notificationId}\n\nCette fonctionnalité sera implémentée prochainement.`);
+        
+        // Marquer comme lue visuellement
+        const notification = event.currentTarget;
+        notification.classList.remove('unread');
+        notification.dataset.read = 'true';
+        
+        const unreadIcon = notification.querySelector('.fa-circle');
+        if (unreadIcon) {
+            unreadIcon.className = 'far fa-circle text-muted';
+        }
+    }
+
+    function markAllAsRead() {
+        const unreadNotifications = document.querySelectorAll('.notification-item.unread');
+        unreadNotifications.forEach(notification => {
+            notification.classList.remove('unread');
+            notification.dataset.read = 'true';
+            
+            const unreadIcon = notification.querySelector('.fa-circle');
+            if (unreadIcon) {
+                unreadIcon.className = 'far fa-circle text-muted';
+            }
+        });
+        
+        alert('Toutes les notifications ont été marquées comme lues');
+    }
+
+    function refreshNotifications() {
+        alert('Actualisation des notifications...');
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+
+    function saveNotificationSettings() {
+        const emailNotifications = document.getElementById('emailNotifications').checked;
+        const attendanceNotifications = document.getElementById('attendanceNotifications').checked;
+        const gradeNotifications = document.getElementById('gradeNotifications').checked;
+        const eventNotifications = document.getElementById('eventNotifications').checked;
+        
+        alert(`Paramètres sauvegardés!\n\nEmail: ${emailNotifications}\nPrésence: ${attendanceNotifications}\nNotes: ${gradeNotifications}\nÉvénements: ${eventNotifications}`);
+    }
+</script>
+{% endblock %}

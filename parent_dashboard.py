@@ -92,33 +92,31 @@ def child_details(child_id):
                          grades=child_grades,
                          attendance_stats=attendance_stats)
 
-@parent_bp.route('/justifications')
+@parent_bp.route('/justification')
 @login_required
 @role_required('parent')
-def justifications():
-    """Parent justifications management page"""
+def justification():
+    """Parent justification management page"""
     user = get_current_user()
-    parent_info = get_parent_info(user['id'])
-    
-    # Get all children
-    children = get_parent_children(parent_info['id_parent'])
-    
-    # Get justifications for all children
-    all_justifications = []
-    for child in children:
-        child_justifications = get_student_justifications(child['id_student'])
-        for justification in child_justifications:
-            justification['child_name'] = child['full_name']
-            justification['child_id'] = child['id_student']
-        all_justifications.extend(child_justifications)
-    
-    # Sort by submission date
-    all_justifications.sort(key=lambda x: x['submitted_at'], reverse=True)
-    
-    return render_template('parent/justifications.html',
-                         parent=parent_info,
+    parent_id = user['id']
+
+    # Obtenir les enfants du parent
+    children = get_parent_children(parent_id)
+
+    # Obtenir l'enfant sélectionné
+    selected_child_id = request.args.get('child_id')
+    if not selected_child_id and children:
+        selected_child_id = children[0]['id']
+
+    # Obtenir les justifications pour l'enfant sélectionné
+    justifications = []
+    if selected_child_id:
+        justifications = get_child_justifications(selected_child_id)
+
+    return render_template('parent/justification.html',
                          children=children,
-                         justifications=all_justifications)
+                         selected_child_id=selected_child_id,
+                         justifications=justifications)
 
 @parent_bp.route('/submit_justification', methods=['POST'])
 @login_required
@@ -360,38 +358,98 @@ def get_parent_children(parent_id):
     """Get all children for a parent"""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     try:
+        # Essayer d'abord avec la nouvelle table parent_children
         cursor.execute('''
-            SELECT se.id_student, se.etudiant_id, se.class_name, se.enrollment_date,
-                   u.first_name, u.last_name, u.email,
-                   e.nom, e.prenom
-            FROM students_extended se
-            JOIN users u ON se.user_id = u.id
-            LEFT JOIN etudiants e ON se.etudiant_id = e.id_etudiant
-            WHERE se.parent_id = ? AND se.status = 'active'
+            SELECT u.id, u.first_name, u.last_name, u.email, u.role
+            FROM parent_children pc
+            JOIN users u ON pc.child_id = u.id
+            WHERE pc.parent_id = ? AND u.is_active = 1
             ORDER BY u.first_name, u.last_name
         ''', (parent_id,))
-        
+
         results = cursor.fetchall()
         children = []
-        
+
         for row in results:
             children.append({
-                'id_student': row[0],
-                'etudiant_id': row[1],
-                'class_name': row[2],
-                'enrollment_date': row[3],
-                'first_name': row[4],
-                'last_name': row[5],
-                'email': row[6],
-                'full_name': f"{row[4]} {row[5]}"
+                'id': row[0],
+                'first_name': row[1],
+                'last_name': row[2],
+                'email': row[3],
+                'role': row[4],
+                'full_name': f"{row[1]} {row[2]}",
+                'class_name': 'Master IA'  # Valeur par défaut
             })
-        
+
+        # Si aucun enfant trouvé, essayer l'ancienne structure
+        if not children:
+            cursor.execute('''
+                SELECT se.id_student, se.etudiant_id, se.class_name, se.enrollment_date,
+                       u.first_name, u.last_name, u.email,
+                       e.nom, e.prenom
+                FROM students_extended se
+                JOIN users u ON se.user_id = u.id
+                LEFT JOIN etudiants e ON se.etudiant_id = e.id_etudiant
+                WHERE se.parent_id = ? AND se.status = 'active'
+                ORDER BY u.first_name, u.last_name
+            ''', (parent_id,))
+
+            results = cursor.fetchall()
+
+            for row in results:
+                children.append({
+                    'id': row[0],
+                    'id_student': row[0],
+                    'etudiant_id': row[1],
+                    'class_name': row[2],
+                    'enrollment_date': row[3],
+                    'first_name': row[4],
+                    'last_name': row[5],
+                    'email': row[6],
+                    'full_name': f"{row[4]} {row[5]}"
+                })
+
         return children
-        
+
     except Exception as e:
         print(f"Error getting parent children: {e}")
+        return []
+    finally:
+        conn.close()
+
+def get_child_justifications(child_id):
+    """Get justifications for a specific child"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute('''
+            SELECT id, student_id, absence_date, reason, description, status, created_at
+            FROM justifications
+            WHERE student_id = ?
+            ORDER BY created_at DESC
+        ''', (child_id,))
+
+        results = cursor.fetchall()
+        justifications = []
+
+        for row in results:
+            justifications.append({
+                'id': row[0],
+                'student_id': row[1],
+                'absence_date': row[2],
+                'reason': row[3],
+                'description': row[4],
+                'status': row[5],
+                'created_at': row[6]
+            })
+
+        return justifications
+
+    except Exception as e:
+        print(f"Error getting child justifications: {e}")
         return []
     finally:
         conn.close()

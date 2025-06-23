@@ -339,6 +339,39 @@ def create_enhanced_tables():
             )
         ''')
 
+        # Create parent_children table for parent-child relationships
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS parent_children (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                parent_id TEXT NOT NULL,
+                child_id TEXT NOT NULL,
+                relationship TEXT DEFAULT 'parent',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (parent_id) REFERENCES users(id),
+                FOREIGN KEY (child_id) REFERENCES users(id),
+                UNIQUE(parent_id, child_id)
+            )
+        ''')
+
+        # Create justifications table for absence justifications
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS justifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT NOT NULL,
+                parent_id TEXT,
+                absence_date DATE NOT NULL,
+                reason TEXT NOT NULL,
+                description TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reviewed_by TEXT,
+                reviewed_at TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES users(id),
+                FOREIGN KEY (parent_id) REFERENCES users(id),
+                FOREIGN KEY (reviewed_by) REFERENCES users(id)
+            )
+        ''')
+
         # Create indexes for better performance
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
@@ -423,6 +456,12 @@ def insert_default_admin():
             INSERT OR IGNORE INTO parents (id_parent, nom, prenom, email, phone)
             VALUES (?, ?, ?, ?, ?)
         ''', (parent_id, 'Durand', 'Pierre', 'parent1@school.com', '+1234567893'))
+
+        # Créer la relation parent-enfant
+        cursor.execute('''
+            INSERT OR IGNORE INTO parent_children (parent_id, child_id, relationship)
+            VALUES (?, ?, ?)
+        ''', (parent_id, student_id, 'parent'))
 
         conn.commit()
         print("✅ Default users created:")
