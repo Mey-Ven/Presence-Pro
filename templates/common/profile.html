@@ -1,0 +1,337 @@
+{% extends "base_role.html" %}
+
+{% block title %}Profile - Facial Recognition Attendance System{% endblock %}
+
+{% block page_title %}User Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 30px;
+    }
+    
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        font-weight: bold;
+        margin: 0 auto 20px;
+    }
+    
+    .form-control {
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        padding: 12px 15px;
+    }
+    
+    .form-control:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    .btn-update {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        border: none;
+        border-radius: 8px;
+        padding: 12px 30px;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .btn-update:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        color: white;
+    }
+    
+    .role-badge {
+        font-size: 0.9em;
+        padding: 0.5em 1em;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+    
+    .role-admin { background-color: #dc3545; color: white; }
+    .role-teacher { background-color: #28a745; color: white; }
+    .role-student { background-color: #007bff; color: white; }
+    .role-parent { background-color: #6f42c1; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Profile Header -->
+    <div class="profile-header text-center">
+        <div class="profile-avatar">
+            {{ user.first_name[0] }}{{ user.last_name[0] }}
+        </div>
+        <h2 class="mb-2">{{ user.full_name }}</h2>
+        <span class="role-badge role-{{ user.role }}">{{ user.role.title() }}</span>
+        <p class="mt-3 mb-0">{{ user.email }}</p>
+    </div>
+
+    <div class="row">
+        <!-- Profile Information -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user me-2"></i>
+                        Profile Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="profileForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="firstName" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="firstName" name="first_name" 
+                                       value="{{ user.first_name }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lastName" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="lastName" name="last_name" 
+                                       value="{{ user.last_name }}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="email" class="form-label">Email Address</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       value="{{ user.email }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="phone" class="form-label">Phone Number</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" 
+                                       value="{{ user.phone or '' }}" placeholder="Enter phone number">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" name="username" 
+                                       value="{{ user.username }}" readonly>
+                                <small class="text-muted">Username cannot be changed</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="role" class="form-label">Role</label>
+                                <input type="text" class="form-control" id="role" name="role" 
+                                       value="{{ user.role.title() }}" readonly>
+                                <small class="text-muted">Role is assigned by administrator</small>
+                            </div>
+                        </div>
+                        
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-update" id="updateProfileBtn">
+                                <i class="fas fa-save me-2"></i>
+                                Update Profile
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Settings -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-shield-alt me-2"></i>
+                        Security Settings
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="passwordForm">
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" 
+                                   name="old_password" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" 
+                                   name="new_password" required>
+                            <small class="text-muted">Minimum 8 characters</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmPassword" 
+                                   name="confirm_password" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-warning w-100" id="changePasswordBtn">
+                            <i class="fas fa-key me-2"></i>
+                            Change Password
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Account Information -->
+            <div class="card mt-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Account Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>User ID:</strong><br>
+                        <small class="text-muted font-monospace">{{ user.id }}</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Account Created:</strong><br>
+                        <small class="text-muted">{{ user.created_at or 'Not available' }}</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Last Login:</strong><br>
+                        <small class="text-muted">{{ user.last_login or 'Not available' }}</small>
+                    </div>
+                    
+                    <div class="mb-0">
+                        <strong>Account Status:</strong><br>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Profile form submission
+        document.getElementById('profileForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            const updateBtn = document.getElementById('updateProfileBtn');
+            const originalText = updateBtn.innerHTML;
+            
+            // Show loading state
+            updateBtn.innerHTML = '<span class="loading"></span> Updating...';
+            updateBtn.disabled = true;
+            
+            fetch('/update_profile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    // Update the profile header if name changed
+                    if (data.name_changed) {
+                        location.reload();
+                    }
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while updating profile', 'danger');
+            })
+            .finally(() => {
+                updateBtn.innerHTML = originalText;
+                updateBtn.disabled = false;
+            });
+        });
+
+        // Password form submission
+        document.getElementById('passwordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                showAlert('New passwords do not match', 'danger');
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                showAlert('Password must be at least 8 characters long', 'danger');
+                return;
+            }
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            
+            const changeBtn = document.getElementById('changePasswordBtn');
+            const originalText = changeBtn.innerHTML;
+            
+            // Show loading state
+            changeBtn.innerHTML = '<span class="loading"></span> Changing...';
+            changeBtn.disabled = true;
+            
+            fetch('/change_password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    // Clear the form
+                    document.getElementById('passwordForm').reset();
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while changing password', 'danger');
+            })
+            .finally(() => {
+                changeBtn.innerHTML = originalText;
+                changeBtn.disabled = false;
+            });
+        });
+
+        // Password strength indicator
+        document.getElementById('newPassword').addEventListener('input', function() {
+            const password = this.value;
+            const strength = calculatePasswordStrength(password);
+            // You could add a visual password strength indicator here
+        });
+    });
+
+    function calculatePasswordStrength(password) {
+        let strength = 0;
+        if (password.length >= 8) strength++;
+        if (/[a-z]/.test(password)) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        return strength;
+    }
+</script>
+{% endblock %}

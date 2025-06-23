@@ -1,0 +1,373 @@
+{% extends "base_role.html" %}
+
+{% block title %}Gestion des Notes - Système de Présence{% endblock %}
+
+{% block page_title %}Gestion des Notes{% endblock %}
+
+{% block extra_css %}
+<style>
+    .course-tab {
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .course-header {
+        background: linear-gradient(135deg, #3498db, #2ecc71);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+    
+    .student-row {
+        padding: 15px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+    
+    .student-row:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .student-row:last-child {
+        border-bottom: none;
+    }
+    
+    .student-info {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .student-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        margin-right: 15px;
+    }
+    
+    .grade-input {
+        width: 80px;
+        text-align: center;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        padding: 5px;
+    }
+    
+    .grade-input:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    }
+    
+    .grade-badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .grade-a { background: #d4edda; color: #155724; }
+    .grade-b { background: #d1ecf1; color: #0c5460; }
+    .grade-c { background: #fff3cd; color: #856404; }
+    .grade-d { background: #f8d7da; color: #721c24; }
+    .grade-f { background: #f5c6cb; color: #721c24; }
+    
+    .assessment-type-badge {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+    
+    .type-quiz { background: #e3f2fd; color: #1565c0; }
+    .type-exam { background: #fce4ec; color: #c2185b; }
+    .type-assignment { background: #f3e5f5; color: #7b1fa2; }
+    .type-project { background: #e8f5e8; color: #2e7d32; }
+    .type-participation { background: #fff8e1; color: #f57c00; }
+    
+    .no-students {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    
+    .grade-summary {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Gestion des Notes</h3>
+            <p class="text-muted">Saisissez et gérez les notes de vos étudiants</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGradeModal">
+                <i class="fas fa-plus me-2"></i>
+                Nouvelle Note
+            </button>
+        </div>
+    </div>
+
+    <!-- Cours avec étudiants -->
+    {% if courses %}
+        {% for course in courses %}
+        <div class="course-tab">
+            <div class="course-header">
+                <div>
+                    <h5 class="mb-1">{{ course.course_name }}</h5>
+                    <small>{{ course.course_code }} - {{ course.students|length }} étudiants</small>
+                </div>
+                <div>
+                    <button class="btn btn-light btn-sm" onclick="exportGrades('{{ course.id_course }}')">
+                        <i class="fas fa-download me-1"></i>
+                        Exporter
+                    </button>
+                </div>
+            </div>
+            
+            {% if course.students %}
+                {% for student in course.students %}
+                <div class="student-row">
+                    <div class="student-info">
+                        <div class="student-avatar">
+                            {{ student.first_name[0] }}{{ student.last_name[0] }}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">{{ student.full_name }}</h6>
+                            <small class="text-muted">{{ student.class_name or 'Classe non définie' }}</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="addGradeForStudent('{{ student.enrollment_id }}', '{{ student.full_name }}')">
+                                <i class="fas fa-plus me-1"></i>
+                                Ajouter Note
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Résumé des notes existantes -->
+                    <div class="grade-summary">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <small class="text-muted">Notes récentes:</small>
+                                <div class="mt-1">
+                                    <!-- Ici, vous afficheriez les notes existantes -->
+                                    <span class="grade-badge grade-a me-1">Quiz 1: A (18/20)</span>
+                                    <span class="grade-badge grade-b me-1">Examen: B (15/20)</span>
+                                    <span class="grade-badge grade-a me-1">Projet: A (19/20)</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <small class="text-muted">Moyenne:</small>
+                                <div class="h5 mb-0 text-success">17.3/20</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-students">
+                    <i class="fas fa-user-graduate fa-3x mb-3"></i>
+                    <h6>Aucun étudiant inscrit</h6>
+                    <p class="text-muted">Les étudiants inscrits à ce cours apparaîtront ici</p>
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-graduation-cap fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucun cours assigné</h5>
+                <p class="text-muted">Vous devez avoir des cours assignés pour gérer les notes</p>
+                <a href="{{ url_for('teacher.courses') }}" class="btn btn-primary">
+                    <i class="fas fa-book me-2"></i>
+                    Gérer les Cours
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal Ajouter Note -->
+<div class="modal fade" id="addGradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ajouter une Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="gradeForm">
+                    <input type="hidden" id="enrollmentId" name="enrollment_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Étudiant</label>
+                        <input type="text" class="form-control" id="studentName" readonly>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="assessmentType" class="form-label">Type d'Évaluation *</label>
+                            <select class="form-control" id="assessmentType" name="assessment_type" required>
+                                <option value="">Sélectionner...</option>
+                                <option value="quiz">Quiz</option>
+                                <option value="exam">Examen</option>
+                                <option value="assignment">Devoir</option>
+                                <option value="project">Projet</option>
+                                <option value="participation">Participation</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="assessmentName" class="form-label">Nom de l'Évaluation *</label>
+                            <input type="text" class="form-control" id="assessmentName" name="assessment_name" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="pointsEarned" class="form-label">Points Obtenus</label>
+                            <input type="number" class="form-control" id="pointsEarned" name="points_earned" 
+                                   step="0.5" min="0" onchange="calculatePercentage()">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="pointsPossible" class="form-label">Points Possibles</label>
+                            <input type="number" class="form-control" id="pointsPossible" name="points_possible" 
+                                   step="0.5" min="0" onchange="calculatePercentage()">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="percentage" class="form-label">Pourcentage</label>
+                            <input type="number" class="form-control" id="percentage" name="percentage" 
+                                   step="0.1" min="0" max="100" readonly>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="gradeLetter" class="form-label">Note Lettre</label>
+                            <select class="form-control" id="gradeLetter" name="grade_letter">
+                                <option value="">Auto</option>
+                                <option value="A">A (Excellent)</option>
+                                <option value="B">B (Bien)</option>
+                                <option value="C">C (Satisfaisant)</option>
+                                <option value="D">D (Passable)</option>
+                                <option value="F">F (Échec)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="assessmentDate" class="form-label">Date d'Évaluation</label>
+                            <input type="date" class="form-control" id="assessmentDate" name="assessment_date">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="comments" class="form-label">Commentaires</label>
+                        <textarea class="form-control" id="comments" name="comments" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveGrade()">
+                    <i class="fas fa-save me-2"></i>
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function addGradeForStudent(enrollmentId, studentName) {
+        document.getElementById('enrollmentId').value = enrollmentId;
+        document.getElementById('studentName').value = studentName;
+        
+        // Réinitialiser le formulaire
+        document.getElementById('gradeForm').reset();
+        document.getElementById('enrollmentId').value = enrollmentId;
+        document.getElementById('studentName').value = studentName;
+        
+        // Définir la date d'aujourd'hui par défaut
+        document.getElementById('assessmentDate').value = new Date().toISOString().split('T')[0];
+        
+        new bootstrap.Modal(document.getElementById('addGradeModal')).show();
+    }
+
+    function calculatePercentage() {
+        const earned = parseFloat(document.getElementById('pointsEarned').value) || 0;
+        const possible = parseFloat(document.getElementById('pointsPossible').value) || 0;
+        
+        if (possible > 0) {
+            const percentage = (earned / possible) * 100;
+            document.getElementById('percentage').value = percentage.toFixed(1);
+            
+            // Calculer automatiquement la note lettre
+            let gradeLetter = '';
+            if (percentage >= 90) gradeLetter = 'A';
+            else if (percentage >= 80) gradeLetter = 'B';
+            else if (percentage >= 70) gradeLetter = 'C';
+            else if (percentage >= 60) gradeLetter = 'D';
+            else gradeLetter = 'F';
+            
+            document.getElementById('gradeLetter').value = gradeLetter;
+        }
+    }
+
+    function saveGrade() {
+        const form = document.getElementById('gradeForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        fetch('/teacher/add_grade', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addGradeModal')).hide();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showAlert('Erreur lors de l\'enregistrement de la note', 'danger');
+        });
+    }
+
+    function exportGrades(courseId) {
+        // Implémenter l'export des notes
+        showAlert('Export des notes en cours de développement', 'info');
+    }
+
+    // Réinitialiser le modal quand il se ferme
+    document.getElementById('addGradeModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('gradeForm').reset();
+    });
+</script>
+{% endblock %}

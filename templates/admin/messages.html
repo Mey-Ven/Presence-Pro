@@ -1,0 +1,30 @@
+{% extends "base_role.html" %}
+
+{% block title %}Hub de Communication - Système de Présence{% endblock %}
+
+{% block page_title %}Hub de Communication{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Hub de Communication</h3>
+            <p class="text-muted">Gérez les messages et communications</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary">
+                <i class="fas fa-envelope me-2"></i>
+                Nouveau Message
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-envelope fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">{{ message }}</h5>
+            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

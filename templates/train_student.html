@@ -138,10 +138,12 @@
         margin-right: 0.5rem;
     }
     
-    .status-waiting { background: #ffc107; }
+    .status-waiting { background: #6c757d; }
+    .status-initializing { background: #ffc107; }
     .status-ready { background: #28a745; }
     .status-capturing { background: #007bff; }
     .status-complete { background: #6f42c1; }
+    .status-error { background: #dc3545; }
     
     .countdown {
         font-size: 3rem;
@@ -193,7 +195,8 @@
 
             <!-- Conteneur caméra -->
             <div class="camera-container">
-                <video id="cameraFeed" class="camera-feed" autoplay muted style="display: none;"></video>
+                <img id="cameraFeed" class="camera-feed" style="display: none;" alt="Flux caméra">
+                <canvas id="cameraCanvas" class="camera-feed" style="display: none;"></canvas>
                 <div id="cameraPlaceholder" class="camera-placeholder">
                     <i class="fas fa-camera fa-3x mb-3"></i>
                     <h5>Caméra non initialisée</h5>
@@ -254,11 +257,14 @@ let photoCount = 0;
 let maxPhotos = 15;
 let captureInterval;
 let stream;
+let isCapturing = false; // Prevent overlapping captures
+let nextCaptureTimeout; // For proper timing control
 
 // Éléments DOM
 const startBtn = document.getElementById('startTrainingBtn');
 const stopBtn = document.getElementById('stopTrainingBtn');
 const cameraFeed = document.getElementById('cameraFeed');
+const cameraCanvas = document.getElementById('cameraCanvas');
 const cameraPlaceholder = document.getElementById('cameraPlaceholder');
 const captureOverlay = document.getElementById('captureOverlay');
 const statusIndicator = document.getElementById('statusIndicator');
@@ -268,6 +274,10 @@ const progressBar = document.getElementById('progressBar');
 const progressPercent = document.getElementById('progressPercent');
 const photoGrid = document.getElementById('photoGrid');
 const countdown = document.getElementById('countdown');
+
+// Variables pour le flux caméra alternatif
+let cameraUpdateInterval;
+let cameraActive = false;
 
 // Initialiser la grille de photos
 function initializePhotoGrid() {
@@ -281,172 +291,343 @@ function initializePhotoGrid() {
     }
 }
 
-// Démarrer la caméra
+// Démarrer la caméra (version avec captures statiques)
 async function startCamera() {
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                width: { ideal: 640 },
-                height: { ideal: 480 },
-                facingMode: 'user'
-            } 
+        console.log('🎥 Starting camera initialization...');
+
+        // Tester l'accès à la caméra côté serveur
+        const response = await fetch('/api/training/test-camera', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
         });
-        
-        cameraFeed.srcObject = stream;
-        cameraFeed.style.display = 'block';
-        cameraPlaceholder.style.display = 'none';
-        
-        updateStatus('ready', 'Caméra prête - Cliquez pour commencer');
-        return true;
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('✅ Camera test successful, starting preview...');
+
+            // Utiliser des captures statiques au lieu d'un flux MJPEG
+            cameraActive = true;
+            cameraPlaceholder.style.display = 'none';
+            cameraCanvas.style.display = 'block';
+
+            // Démarrer les captures de prévisualisation
+            await startCameraPreview();
+
+            updateStatus('ready', 'Caméra prête - Entraînement en cours...');
+            console.log('✅ Camera preview started successfully');
+            return true;
+        } else {
+            console.error('❌ Camera test failed:', result.message);
+            showMessage(`Erreur: ${result.message}`, 'error');
+            return false;
+        }
     } catch (error) {
-        console.error('Erreur caméra:', error);
+        console.error('❌ Camera initialization error:', error);
         showMessage('Erreur: Impossible d\'accéder à la caméra', 'error');
         return false;
     }
 }
 
-// Arrêter la caméra
-function stopCamera() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
+// Démarrer la prévisualisation avec captures statiques
+async function startCameraPreview() {
+    const canvas = cameraCanvas;
+    const ctx = canvas.getContext('2d');
+
+    // Définir la taille du canvas
+    canvas.width = 640;
+    canvas.height = 480;
+
+    // Fonction pour capturer et afficher une image
+    async function updatePreview() {
+        if (!cameraActive) return;
+
+        try {
+            // Capturer une image depuis le serveur
+            const response = await fetch('/api/training/capture-preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ timestamp: Date.now() })
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const img = new Image();
+
+                img.onload = () => {
+                    // Dessiner l'image sur le canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(img.src);
+                };
+
+                img.src = URL.createObjectURL(blob);
+            }
+        } catch (error) {
+            console.error('Preview update error:', error);
+        }
     }
-    cameraFeed.style.display = 'none';
-    cameraPlaceholder.style.display = 'flex';
+
+    // Mettre à jour la prévisualisation toutes les 200ms
+    cameraUpdateInterval = setInterval(updatePreview, 200);
+
+    // Première capture immédiate
+    await updatePreview();
 }
 
-// Capturer une photo
+// Arrêter la caméra
+function stopCamera() {
+    console.log('🛑 Stopping camera...');
+
+    cameraActive = false;
+
+    // Arrêter l'intervalle de mise à jour
+    if (cameraUpdateInterval) {
+        clearInterval(cameraUpdateInterval);
+        cameraUpdateInterval = null;
+    }
+
+    // Masquer les éléments de caméra
+    cameraFeed.src = '';
+    cameraFeed.style.display = 'none';
+    cameraCanvas.style.display = 'none';
+    cameraPlaceholder.style.display = 'flex';
+
+    // Arrêter le flux côté serveur
+    fetch('/api/training/stop-camera', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    }).catch(console.error);
+}
+
+// Capturer une photo (version backend avec timing amélioré)
 async function capturePhoto() {
+    // Prevent overlapping captures
+    if (isCapturing || !trainingActive) {
+        console.log('⏭️ Skipping capture - already capturing or training stopped');
+        return;
+    }
+
+    isCapturing = true;
+
     try {
+        console.log(`📸 Starting capture ${photoCount + 1}/${maxPhotos}`);
+
+        // Vérifier que la caméra est toujours active
+        if (!cameraActive || cameraCanvas.style.display === 'none') {
+            console.error('❌ Camera not available');
+            showMessage('Erreur: Caméra non disponible', 'error');
+            isCapturing = false;
+            return;
+        }
+
         // Afficher l'overlay de capture
         captureOverlay.style.display = 'flex';
-        
+        console.log('⏰ Starting countdown...');
+
         // Compte à rebours
         for (let i = 3; i > 0; i--) {
+            if (!trainingActive) break; // Stop if training was cancelled
             countdown.textContent = i;
+            console.log(`   Countdown: ${i}`);
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        
-        countdown.textContent = '📸';
-        
-        // Capturer l'image
-        const canvas = document.createElement('canvas');
-        canvas.width = cameraFeed.videoWidth;
-        canvas.height = cameraFeed.videoHeight;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(cameraFeed, 0, 0);
-        
-        // Convertir en blob
-        canvas.toBlob(async (blob) => {
-            const formData = new FormData();
-            formData.append('photo', blob, `photo_${photoCount}.jpg`);
-            formData.append('student_id', '{{ student.id_etudiant }}');
-            formData.append('photo_index', photoCount);
-            
-            try {
-                const response = await fetch('/api/training/capture-photo', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Marquer la photo comme capturée
-                    const photoItem = document.getElementById(`photo-${photoCount}`);
-                    photoItem.innerHTML = `<img src="${canvas.toDataURL()}" alt="Photo ${photoCount + 1}">`;
-                    photoItem.classList.add('captured');
-                    
-                    photoCount++;
-                    updateProgress();
-                    
-                    if (photoCount >= maxPhotos) {
-                        await completeTraining();
-                    }
-                } else {
-                    showMessage(`Erreur capture: ${result.message}`, 'error');
-                }
-            } catch (error) {
-                showMessage('Erreur lors de l\'envoi de la photo', 'error');
-            }
-            
-            // Masquer l'overlay
+
+        if (!trainingActive) {
+            console.log('🛑 Training stopped during countdown');
             captureOverlay.style.display = 'none';
-        }, 'image/jpeg', 0.8);
-        
+            isCapturing = false;
+            return;
+        }
+
+        countdown.textContent = '📸';
+        console.log('📸 Taking photo...');
+
+        // Capturer côté serveur
+        const response = await fetch('/api/training/capture-photo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                student_id: '{{ student.id_etudiant }}',
+                photo_index: photoCount
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Marquer la photo comme capturée
+            const photoItem = document.getElementById(`photo-${photoCount}`);
+            photoItem.innerHTML = `<img src="/api/training/photo/${result.photo_path}" alt="Photo ${photoCount + 1}">`;
+            photoItem.classList.add('captured');
+
+            photoCount++;
+            updateProgress();
+
+            console.log(`✅ Photo ${photoCount}/${maxPhotos} captured successfully`);
+
+            // Check if training is complete
+            if (photoCount >= maxPhotos) {
+                await completeTraining();
+                return;
+            }
+
+            // Schedule next capture with proper interval
+            if (trainingActive) {
+                scheduleNextCapture();
+            }
+        } else {
+            showMessage(`Erreur capture: ${result.message}`, 'error');
+            // Retry after a delay if there was an error
+            if (trainingActive) {
+                scheduleNextCapture();
+            }
+        }
+
     } catch (error) {
         console.error('Erreur capture:', error);
-        captureOverlay.style.display = 'none';
         showMessage('Erreur lors de la capture', 'error');
+        // Retry after a delay if there was an error
+        if (trainingActive) {
+            scheduleNextCapture();
+        }
+    } finally {
+        // Always hide overlay and reset capture flag
+        captureOverlay.style.display = 'none';
+        isCapturing = false;
     }
+}
+
+// Schedule the next photo capture with proper timing
+function scheduleNextCapture() {
+    if (!trainingActive || photoCount >= maxPhotos) {
+        return;
+    }
+
+    console.log(`⏰ Scheduling next capture in 3 seconds...`);
+
+    // Clear any existing timeout
+    if (nextCaptureTimeout) {
+        clearTimeout(nextCaptureTimeout);
+    }
+
+    // Schedule next capture after 3 seconds
+    nextCaptureTimeout = setTimeout(() => {
+        if (trainingActive && photoCount < maxPhotos) {
+            capturePhoto();
+        }
+    }, 3000);
 }
 
 // Démarrer l'entraînement
 async function startTraining() {
     if (trainingActive) return;
-    
-    const cameraStarted = await startCamera();
-    if (!cameraStarted) return;
-    
-    trainingActive = true;
-    photoCount = 0;
-    
-    startBtn.style.display = 'none';
-    stopBtn.style.display = 'inline-block';
-    
-    updateStatus('capturing', 'Entraînement en cours...');
-    updateProgress();
-    
-    // Démarrer la capture automatique
-    captureInterval = setInterval(async () => {
-        if (photoCount < maxPhotos && trainingActive) {
-            await capturePhoto();
+
+    console.log('🚀 Starting training session...');
+    updateStatus('initializing', 'Initialisation de la caméra...');
+
+    try {
+        const cameraStarted = await startCamera();
+        if (!cameraStarted) {
+            updateStatus('error', 'Erreur d\'initialisation de la caméra');
+            return;
         }
-    }, 3000); // Une photo toutes les 3 secondes
+
+        trainingActive = true;
+        photoCount = 0;
+        isCapturing = false;
+
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'inline-block';
+
+        updateStatus('capturing', 'Entraînement en cours...');
+        updateProgress();
+
+        console.log('✅ Camera ready, starting capture sequence...');
+
+        // Start the first capture after a short delay
+        setTimeout(() => {
+            if (trainingActive) {
+                console.log('📸 Initiating first capture...');
+                capturePhoto();
+            }
+        }, 2000); // 2 seconds delay to ensure camera is fully ready
+
+    } catch (error) {
+        console.error('❌ Training start error:', error);
+        updateStatus('error', 'Erreur lors du démarrage');
+        showMessage('Erreur lors du démarrage de l\'entraînement', 'error');
+    }
 }
 
 // Arrêter l'entraînement
 function stopTraining() {
+    console.log('🛑 Stopping training session...');
+
     trainingActive = false;
-    
+    isCapturing = false;
+
+    // Clear any scheduled captures
+    if (nextCaptureTimeout) {
+        clearTimeout(nextCaptureTimeout);
+        nextCaptureTimeout = null;
+    }
+
+    // Clear old interval if it exists (legacy cleanup)
     if (captureInterval) {
         clearInterval(captureInterval);
         captureInterval = null;
     }
-    
+
+    // Hide capture overlay
+    captureOverlay.style.display = 'none';
+
     stopCamera();
-    
+
     startBtn.style.display = 'inline-block';
     stopBtn.style.display = 'none';
-    
+
     updateStatus('waiting', 'Entraînement arrêté');
 }
 
 // Terminer l'entraînement
 async function completeTraining() {
+    console.log('🎯 Completing training session...');
+
     trainingActive = false;
-    
+    isCapturing = false;
+
+    // Clear any scheduled captures
+    if (nextCaptureTimeout) {
+        clearTimeout(nextCaptureTimeout);
+        nextCaptureTimeout = null;
+    }
+
+    // Clear old interval if it exists (legacy cleanup)
     if (captureInterval) {
         clearInterval(captureInterval);
         captureInterval = null;
     }
-    
+
+    // Hide capture overlay
+    captureOverlay.style.display = 'none';
+
     updateStatus('complete', 'Génération des encodages...');
-    
+
     try {
         const response = await fetch('/api/training/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ student_id: '{{ student.id_etudiant }}' })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showMessage('Entraînement terminé avec succès!', 'success');
             updateStatus('complete', 'Entraînement terminé');
-            
+
             // Rediriger après 3 secondes
             setTimeout(() => {
                 window.location.href = '{{ url_for("students") }}';
@@ -457,7 +638,7 @@ async function completeTraining() {
     } catch (error) {
         showMessage('Erreur lors de la finalisation', 'error');
     }
-    
+
     stopBtn.style.display = 'none';
     startBtn.style.display = 'inline-block';
 }

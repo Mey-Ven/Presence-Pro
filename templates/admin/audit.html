@@ -1,0 +1,30 @@
+{% extends "base_role.html" %}
+
+{% block title %}Journal d'Audit - Système de Présence{% endblock %}
+
+{% block page_title %}Journal d'Audit{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Journal d'Audit</h3>
+            <p class="text-muted">Consultez l'historique des actions système</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary">
+                <i class="fas fa-download me-2"></i>
+                Exporter Logs
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">{{ message }}</h5>
+            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

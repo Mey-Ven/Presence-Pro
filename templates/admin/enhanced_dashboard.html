@@ -1,0 +1,404 @@
+{% extends "base_role.html" %}
+
+{% block title %}Administrator Dashboard - Facial Recognition Attendance System{% endblock %}
+
+{% block page_title %}System Administration{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-stat-card {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+        transition: transform 0.3s;
+    }
+    
+    .admin-stat-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .admin-stat-card.danger {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    }
+    
+    .admin-stat-card.success {
+        background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+    }
+    
+    .admin-stat-card.warning {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    }
+    
+    .admin-stat-card.info {
+        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    }
+    
+    .activity-item {
+        background: white;
+        border-left: 4px solid #3498db;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .alert-item {
+        background: #fff3cd;
+        border-left: 4px solid #ffc107;
+        padding: 12px;
+        margin-bottom: 8px;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .alert-item.danger {
+        background: #f8d7da;
+        border-left-color: #dc3545;
+    }
+    
+    .quick-admin-card {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s;
+        text-decoration: none;
+        color: #333;
+        display: block;
+        height: 100%;
+    }
+    
+    .quick-admin-card:hover {
+        border-color: #3498db;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        color: #3498db;
+        text-decoration: none;
+    }
+    
+    .user-role-badge {
+        font-size: 0.75em;
+        padding: 0.25em 0.5em;
+        border-radius: 4px;
+    }
+    
+    .role-admin { background-color: #dc3545; color: white; }
+    .role-teacher { background-color: #28a745; color: white; }
+    .role-student { background-color: #007bff; color: white; }
+    .role-parent { background-color: #6f42c1; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 bg-dark text-white">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">System Administration</h2>
+                            <p class="mb-0">
+                                <i class="fas fa-shield-alt me-2"></i>
+                                Complete system oversight and management
+                                <span class="ms-3">
+                                    <i class="fas fa-server me-2"></i>
+                                    System Status: <span class="text-success">Online</span>
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="display-6">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="admin-stat-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ system_stats.total_users or 0 }}</h3>
+                        <p class="mb-0">Total Utilisateurs</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="admin-stat-card success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ system_stats.active_courses or 0 }}</h3>
+                        <p class="mb-0">Cours Actifs</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-book"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="admin-stat-card warning">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ system_stats.today_attendance or 0 }}</h3>
+                        <p class="mb-0">Présences Aujourd'hui</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="admin-stat-card info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ system_stats.weekly_messages or 0 }}</h3>
+                        <p class="mb-0">Messages Hebdomadaires</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Statistics by Role -->
+    {% if user_stats %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        User Statistics by Role
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for role, stats in user_stats.items() %}
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="text-center">
+                                <div class="h4 mb-2">
+                                    <span class="user-role-badge role-{{ role }}">{{ role.title() }}</span>
+                                </div>
+                                <div class="row">
+                                    <div class="col-4">
+                                        <div class="h5 text-primary">{{ stats.total }}</div>
+                                        <small class="text-muted">Total</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="h5 text-success">{{ stats.active }}</div>
+                                        <small class="text-muted">Active</small>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="h5 text-info">{{ stats.active_this_week }}</div>
+                                        <small class="text-muted">This Week</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Recent Activities -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Recent System Activities
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_activities %}
+                        {% for activity in recent_activities %}
+                        <div class="activity-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ activity.action }} {{ activity.table_name }}</h6>
+                                    <p class="mb-1 text-muted">By: {{ activity.user_name }}</p>
+                                    <small class="text-muted">{{ activity.created_at }}</small>
+                                </div>
+                                <span class="badge bg-primary">{{ activity.action }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No recent activities</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- System Alerts -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        System Alerts
+                        {% if system_alerts %}
+                        <span class="badge bg-warning ms-2">{{ system_alerts|length }}</span>
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if system_alerts %}
+                        {% for alert in system_alerts %}
+                        <div class="alert-item {% if alert.type == 'danger' %}danger{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">{{ alert.message }}</h6>
+                                    {% if alert.action_url %}
+                                    <a href="{{ alert.action_url }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt me-1"></i>
+                                        Take Action
+                                    </a>
+                                    {% endif %}
+                                </div>
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                            <p class="text-muted">All systems operational</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Administration Actions -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Quick Administration
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <a href="{{ url_for('admin_enhanced.users') }}" class="quick-admin-card">
+                                <i class="fas fa-users fa-2x mb-2 text-primary"></i>
+                                <h6>User Management</h6>
+                                <small class="text-muted">Manage all users</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <a href="{{ url_for('admin_enhanced.courses_management') }}" class="quick-admin-card">
+                                <i class="fas fa-book fa-2x mb-2 text-success"></i>
+                                <h6>Course Management</h6>
+                                <small class="text-muted">Manage courses</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <a href="{{ url_for('admin_enhanced.system_reports') }}" class="quick-admin-card">
+                                <i class="fas fa-chart-bar fa-2x mb-2 text-info"></i>
+                                <h6>System Reports</h6>
+                                <small class="text-muted">Analytics & reports</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <a href="{{ url_for('admin_enhanced.communication_hub') }}" class="quick-admin-card">
+                                <i class="fas fa-envelope fa-2x mb-2 text-warning"></i>
+                                <h6>Communication</h6>
+                                <small class="text-muted">Message management</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <a href="{{ url_for('admin_enhanced.audit_trail') }}" class="quick-admin-card">
+                                <i class="fas fa-history fa-2x mb-2 text-secondary"></i>
+                                <h6>Audit Trail</h6>
+                                <small class="text-muted">System logs</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-2 col-sm-4 col-6 mb-3">
+                            <a href="{{ url_for('admin_enhanced.system_settings') }}" class="quick-admin-card">
+                                <i class="fas fa-cog fa-2x mb-2 text-dark"></i>
+                                <h6>Settings</h6>
+                                <small class="text-muted">System config</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Admin dashboard loaded');
+        
+        // Add animation to stat cards
+        const statCards = document.querySelectorAll('.admin-stat-card');
+        statCards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 100);
+        });
+        
+        // Auto-refresh system stats every 60 seconds
+        setInterval(function() {
+            console.log('Refreshing system statistics...');
+            // This would typically make an AJAX call to refresh stats
+        }, 60000);
+        
+        // Real-time system monitoring
+        function checkSystemHealth() {
+            // This would typically check system health indicators
+            console.log('Checking system health...');
+        }
+        
+        // Check system health every 30 seconds
+        setInterval(checkSystemHealth, 30000);
+    });
+</script>
+{% endblock %}

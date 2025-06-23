@@ -1,0 +1,331 @@
+{% extends "base_role.html" %}
+
+{% block title %}Tableau de Bord Étudiant - Système de Présence{% endblock %}
+
+{% block page_title %}Tableau de Bord Étudiant{% endblock %}
+
+{% block extra_css %}
+<style>
+    .schedule-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .attendance-chart {
+        height: 300px;
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+    }
+    
+    .quick-action-btn {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        transition: all 0.3s;
+        text-decoration: none;
+        color: #333;
+        display: block;
+    }
+    
+    .quick-action-btn:hover {
+        border-color: #3498db;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        color: #3498db;
+    }
+    
+    .attendance-status {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    .status-present { background-color: #27ae60; }
+    .status-absent { background-color: #e74c3c; }
+    .status-late { background-color: #f39c12; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 bg-primary text-white">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-2">Bienvenue, {{ student.first_name }}!</h2>
+                            <p class="mb-0">
+                                <i class="fas fa-graduation-cap me-2"></i>
+                                Classe: {{ student.class_name or 'Non assignée' }}
+                                <span class="ms-3">
+                                    <i class="fas fa-calendar me-2"></i>
+                                    Aujourd'hui
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="display-6">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ attendance_stats.attendance_rate or 0 }}%</h3>
+                        <p class="mb-0">Attendance Rate</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ attendance_stats.unique_days or 0 }}</h3>
+                        <p class="mb-0">Days Present</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card warning">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ pending_justifications|length }}</h3>
+                        <p class="mb-0">Pending Justifications</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">{{ today_schedule|length }}</h3>
+                        <p class="mb-0">Today's Classes</p>
+                    </div>
+                    <div class="display-6">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Today's Schedule -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-day me-2"></i>
+                        Today's Schedule
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if today_schedule %}
+                        {% for class in today_schedule %}
+                        <div class="d-flex align-items-center mb-3 p-3 bg-light rounded">
+                            <div class="me-3">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" 
+                                     style="width: 50px; height: 50px;">
+                                    <i class="fas fa-book"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ class.course_name }}</h6>
+                                <p class="mb-1 text-muted">{{ class.course_code }}</p>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ class.start_time }} - {{ class.end_time }}
+                                    <span class="ms-2">
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        {{ class.classroom }}
+                                    </span>
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted">{{ class.teacher_name }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No classes scheduled for today</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Attendance -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Recent Attendance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_attendance %}
+                        {% for record in recent_attendance %}
+                        <div class="d-flex align-items-center mb-3 p-3 bg-light rounded">
+                            <div class="me-3">
+                                <span class="attendance-status status-present"></span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ record.date }}</h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ record.time }}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-success">Present</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-user-clock fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No recent attendance records</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <a href="{{ url_for('student.schedule') }}" class="quick-action-btn">
+                                <i class="fas fa-calendar fa-2x mb-2 text-primary"></i>
+                                <h6>View Schedule</h6>
+                                <small class="text-muted">Full weekly timetable</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <a href="{{ url_for('student.attendance') }}" class="quick-action-btn">
+                                <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
+                                <h6>Attendance History</h6>
+                                <small class="text-muted">View detailed records</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <a href="{{ url_for('student.grades') }}" class="quick-action-btn">
+                                <i class="fas fa-graduation-cap fa-2x mb-2 text-info"></i>
+                                <h6>View Grades</h6>
+                                <small class="text-muted">Academic performance</small>
+                            </a>
+                        </div>
+                        
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <a href="{{ url_for('student.justifications') }}" class="quick-action-btn">
+                                <i class="fas fa-file-alt fa-2x mb-2 text-warning"></i>
+                                <h6>Justifications</h6>
+                                <small class="text-muted">Submit absence requests</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Justifications Alert -->
+    {% if pending_justifications %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h6 class="alert-heading">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Pending Justifications
+                </h6>
+                <p class="mb-2">You have {{ pending_justifications|length }} pending absence justification(s):</p>
+                <ul class="mb-0">
+                    {% for justification in pending_justifications %}
+                    <li>{{ justification.absence_date }} - {{ justification.reason }}</li>
+                    {% endfor %}
+                </ul>
+                <hr>
+                <a href="{{ url_for('student.justifications') }}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-eye me-1"></i>
+                    View Details
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add any student dashboard specific JavaScript here
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize any charts or interactive elements
+        console.log('Student dashboard loaded');
+        
+        // Add fade-in animation to cards
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 100);
+        });
+    });
+</script>
+{% endblock %}

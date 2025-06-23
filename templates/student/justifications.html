@@ -1,0 +1,462 @@
+{% extends "base_role.html" %}
+
+{% block title %}Justifications d'Absence - Système de Présence{% endblock %}
+
+{% block page_title %}Justifications d'Absence{% endblock %}
+
+{% block extra_css %}
+<style>
+    .justification-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #3498db;
+        transition: all 0.3s;
+    }
+    
+    .justification-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .justification-card.pending {
+        border-left-color: #f39c12;
+    }
+    
+    .justification-card.approved {
+        border-left-color: #27ae60;
+    }
+    
+    .justification-card.rejected {
+        border-left-color: #e74c3c;
+    }
+    
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+    
+    .status-pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .status-approved {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-rejected {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .justification-header {
+        display: flex;
+        justify-content: between;
+        align-items: start;
+        margin-bottom: 15px;
+    }
+    
+    .document-preview {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+    
+    .quick-stats {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 10px;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .filter-tabs {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .filter-tab {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 10px 20px;
+        margin-right: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-block;
+    }
+    
+    .filter-tab.active {
+        border-color: #3498db;
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .filter-tab:hover {
+        border-color: #3498db;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Justifications d'Absence</h3>
+            <p class="text-muted">Gérez vos demandes de justification d'absence</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newJustificationModal">
+                <i class="fas fa-plus me-2"></i>
+                Nouvelle Justification
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistiques rapides -->
+    <div class="quick-stats">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ justification_stats.total or 0 }}</span>
+                    <span class="stat-label">Total</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ justification_stats.pending or 0 }}</span>
+                    <span class="stat-label">En Attente</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ justification_stats.approved or 0 }}</span>
+                    <span class="stat-label">Approuvées</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ justification_stats.rejected or 0 }}</span>
+                    <span class="stat-label">Rejetées</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres par statut -->
+    <div class="filter-tabs">
+        <span class="filter-tab active" data-status="all">
+            <i class="fas fa-list me-1"></i>
+            Toutes
+        </span>
+        <span class="filter-tab" data-status="pending">
+            <i class="fas fa-clock me-1"></i>
+            En Attente
+        </span>
+        <span class="filter-tab" data-status="approved">
+            <i class="fas fa-check me-1"></i>
+            Approuvées
+        </span>
+        <span class="filter-tab" data-status="rejected">
+            <i class="fas fa-times me-1"></i>
+            Rejetées
+        </span>
+    </div>
+
+    <!-- Liste des justifications -->
+    {% if justifications %}
+        {% for justification in justifications %}
+        <div class="justification-card {{ justification.status }}" data-status="{{ justification.status }}">
+            <div class="justification-header">
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">Absence du {{ justification.absence_date }}</h6>
+                    <p class="text-muted mb-2">{{ justification.course_name }} - {{ justification.reason }}</p>
+                </div>
+                <div class="text-end">
+                    <span class="status-badge status-{{ justification.status }}">
+                        {% if justification.status == 'pending' %}En Attente
+                        {% elif justification.status == 'approved' %}Approuvée
+                        {% elif justification.status == 'rejected' %}Rejetée
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <p class="mb-2"><strong>Description:</strong></p>
+                    <p class="text-muted">{{ justification.description }}</p>
+                    
+                    {% if justification.admin_comment %}
+                    <div class="mt-3">
+                        <p class="mb-1"><strong>Commentaire administrateur:</strong></p>
+                        <div class="alert alert-{{ 'success' if justification.status == 'approved' else 'danger' if justification.status == 'rejected' else 'info' }}">
+                            {{ justification.admin_comment }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="text-end">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            Soumise le {{ justification.submitted_date }}
+                        </small>
+                        
+                        {% if justification.reviewed_date %}
+                        <br>
+                        <small class="text-muted">
+                            <i class="fas fa-check me-1"></i>
+                            Traitée le {{ justification.reviewed_date }}
+                        </small>
+                        {% endif %}
+                        
+                        <div class="mt-2">
+                            {% if justification.status == 'pending' %}
+                            <button class="btn btn-outline-primary btn-sm" 
+                                    onclick="editJustification('{{ justification.id }}')">
+                                <i class="fas fa-edit me-1"></i>
+                                Modifier
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" 
+                                    onclick="deleteJustification('{{ justification.id }}')">
+                                <i class="fas fa-trash me-1"></i>
+                                Supprimer
+                            </button>
+                            {% endif %}
+                            
+                            {% if justification.document_path %}
+                            <button class="btn btn-outline-info btn-sm" 
+                                    onclick="viewDocument('{{ justification.document_path }}')">
+                                <i class="fas fa-file me-1"></i>
+                                Voir Document
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if justification.document_path %}
+            <div class="document-preview">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-paperclip me-2 text-muted"></i>
+                    <span class="text-muted">Document joint: {{ justification.document_name }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucune justification</h5>
+                <p class="text-muted">Vous n'avez pas encore soumis de justification d'absence</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newJustificationModal">
+                    <i class="fas fa-plus me-2"></i>
+                    Créer une Justification
+                </button>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal Nouvelle Justification -->
+<div class="modal fade" id="newJustificationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nouvelle Justification d'Absence</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="justificationForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="absenceDate" class="form-label">Date d'absence *</label>
+                            <input type="date" class="form-control" id="absenceDate" name="absence_date" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="courseId" class="form-label">Cours concerné *</label>
+                            <select class="form-control" id="courseId" name="course_id" required>
+                                <option value="">Sélectionner un cours...</option>
+                                {% for course in enrolled_courses %}
+                                <option value="{{ course.id_course }}">{{ course.course_name }} ({{ course.course_code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="reason" class="form-label">Motif de l'absence *</label>
+                        <select class="form-control" id="reason" name="reason" required>
+                            <option value="">Sélectionner un motif...</option>
+                            <option value="maladie">Maladie</option>
+                            <option value="rendez_vous_medical">Rendez-vous médical</option>
+                            <option value="urgence_familiale">Urgence familiale</option>
+                            <option value="transport">Problème de transport</option>
+                            <option value="stage">Stage professionnel</option>
+                            <option value="competition">Compétition sportive</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description détaillée *</label>
+                        <textarea class="form-control" id="description" name="description" rows="4" required 
+                                  placeholder="Décrivez les circonstances de votre absence..."></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="document" class="form-label">Document justificatif</label>
+                        <input type="file" class="form-control" id="document" name="document" 
+                               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                        <small class="text-muted">
+                            Formats acceptés: PDF, JPG, PNG, DOC, DOCX (max 5MB)<br>
+                            Exemples: certificat médical, convocation, justificatif de transport
+                        </small>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Information:</strong> Votre justification sera examinée par l'administration. 
+                        Vous recevrez une notification une fois qu'elle aura été traitée.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitJustification()">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    Soumettre
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function submitJustification() {
+        const form = document.getElementById('justificationForm');
+        const formData = new FormData(form);
+        
+        fetch('/student/submit_justification', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('newJustificationModal')).hide();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showAlert('Erreur lors de la soumission de la justification', 'danger');
+        });
+    }
+
+    function editJustification(justificationId) {
+        // Implémenter l'édition de justification
+        showAlert('Modification en cours de développement', 'info');
+    }
+
+    function deleteJustification(justificationId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette justification ?')) {
+            fetch(`/student/delete_justification/${justificationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                showAlert('Erreur lors de la suppression', 'danger');
+            });
+        }
+    }
+
+    function viewDocument(documentPath) {
+        // Ouvrir le document dans un nouvel onglet
+        window.open(`/documents/${documentPath}`, '_blank');
+    }
+
+    // Gestion des filtres par statut
+    document.addEventListener('DOMContentLoaded', function() {
+        const filterTabs = document.querySelectorAll('.filter-tab');
+        const justificationCards = document.querySelectorAll('.justification-card');
+        
+        filterTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Retirer la classe active de tous les filtres
+                filterTabs.forEach(t => t.classList.remove('active'));
+                // Ajouter la classe active au filtre cliqué
+                this.classList.add('active');
+                
+                const selectedStatus = this.getAttribute('data-status');
+                
+                // Afficher/masquer les justifications
+                justificationCards.forEach(card => {
+                    if (selectedStatus === 'all' || card.getAttribute('data-status') === selectedStatus) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Définir la date d'aujourd'hui par défaut
+        document.getElementById('absenceDate').max = new Date().toISOString().split('T')[0];
+    });
+
+    // Réinitialiser le modal quand il se ferme
+    document.getElementById('newJustificationModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('justificationForm').reset();
+    });
+</script>
+{% endblock %}

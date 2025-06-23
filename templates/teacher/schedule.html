@@ -1,0 +1,237 @@
+{% extends "base_role.html" %}
+
+{% block title %}Emploi du Temps - Système de Présence{% endblock %}
+
+{% block page_title %}Mon Emploi du Temps{% endblock %}
+
+{% block extra_css %}
+<style>
+    .schedule-container {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .schedule-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .day-column {
+        border-right: 1px solid #e9ecef;
+        min-height: 400px;
+        padding: 15px;
+    }
+    
+    .day-column:last-child {
+        border-right: none;
+    }
+    
+    .day-header {
+        background: #f8f9fa;
+        padding: 10px;
+        text-align: center;
+        font-weight: 600;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+    
+    .class-item {
+        background: linear-gradient(135deg, #3498db, #2ecc71);
+        color: white;
+        margin-bottom: 10px;
+        padding: 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .class-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    
+    .no-classes {
+        padding: 30px 15px;
+        text-align: center;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Mon Emploi du Temps</h3>
+            <p class="text-muted">Consultez votre planning hebdomadaire</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary">
+                <i class="fas fa-print me-1"></i>
+                Imprimer
+            </button>
+        </div>
+    </div>
+
+    <!-- Emploi du temps -->
+    <div class="schedule-container">
+        <div class="schedule-header">
+            <h4 class="mb-0">Emploi du Temps Hebdomadaire</h4>
+            <small>Semaine actuelle</small>
+        </div>
+        
+        <div class="row g-0">
+            <!-- Lundi -->
+            <div class="col day-column">
+                <div class="day-header">
+                    <div>Lundi</div>
+                    <small class="text-muted">23/06</small>
+                </div>
+                <div class="day-content">
+                    <div class="class-item">
+                        <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 5px;">09:00 - 11:00</div>
+                        <div style="font-size: 1rem; font-weight: 500; margin-bottom: 3px;">Mathématiques</div>
+                        <div style="font-size: 0.75rem; opacity: 0.9;">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            Salle 101
+                        </div>
+                    </div>
+                    
+                    <div class="class-item">
+                        <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 5px;">14:00 - 16:00</div>
+                        <div style="font-size: 1rem; font-weight: 500; margin-bottom: 3px;">Physique</div>
+                        <div style="font-size: 0.75rem; opacity: 0.9;">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            Labo A
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mardi -->
+            <div class="col day-column">
+                <div class="day-header">
+                    <div>Mardi</div>
+                    <small class="text-muted">24/06</small>
+                </div>
+                <div class="day-content">
+                    <div class="class-item">
+                        <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 5px;">10:00 - 12:00</div>
+                        <div style="font-size: 1rem; font-weight: 500; margin-bottom: 3px;">Chimie</div>
+                        <div style="font-size: 0.75rem; opacity: 0.9;">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            Labo B
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mercredi -->
+            <div class="col day-column">
+                <div class="day-header">
+                    <div>Mercredi</div>
+                    <small class="text-muted">25/06</small>
+                </div>
+                <div class="day-content">
+                    <div class="no-classes">
+                        <i class="fas fa-calendar-times fa-2x mb-2"></i>
+                        <div>Aucun cours</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Jeudi -->
+            <div class="col day-column">
+                <div class="day-header">
+                    <div>Jeudi</div>
+                    <small class="text-muted">26/06</small>
+                </div>
+                <div class="day-content">
+                    <div class="class-item">
+                        <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 5px;">08:00 - 10:00</div>
+                        <div style="font-size: 1rem; font-weight: 500; margin-bottom: 3px;">Informatique</div>
+                        <div style="font-size: 0.75rem; opacity: 0.9;">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            Salle Info
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vendredi -->
+            <div class="col day-column">
+                <div class="day-header">
+                    <div>Vendredi</div>
+                    <small class="text-muted">27/06</small>
+                </div>
+                <div class="day-content">
+                    <div class="class-item">
+                        <div style="font-size: 0.875rem; font-weight: 600; margin-bottom: 5px;">13:00 - 15:00</div>
+                        <div style="font-size: 1rem; font-weight: 500; margin-bottom: 3px;">Biologie</div>
+                        <div style="font-size: 0.75rem; opacity: 0.9;">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            Labo C
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Résumé -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">8</h3>
+                    <p class="text-muted mb-0">Cours cette semaine</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-success">125</h3>
+                    <p class="text-muted mb-0">Étudiants total</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="text-info">5</h3>
+                    <p class="text-muted mb-0">Cours assignés</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Teacher schedule loaded');
+        
+        // Animation des éléments
+        const classItems = document.querySelectorAll('.class-item');
+        classItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(20px)';
+                item.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => {
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 100);
+        });
+    });
+</script>
+{% endblock %}

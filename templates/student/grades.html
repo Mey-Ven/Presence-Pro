@@ -1,0 +1,440 @@
+{% extends "base_role.html" %}
+
+{% block title %}Mes Notes - Système de Présence{% endblock %}
+
+{% block page_title %}Mes Notes et Évaluations{% endblock %}
+
+{% block extra_css %}
+<style>
+    .course-grades-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #3498db;
+    }
+    
+    .course-header {
+        background: linear-gradient(135deg, #3498db, #2ecc71);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .grade-item {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 3px solid #3498db;
+        transition: all 0.2s;
+    }
+    
+    .grade-item:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .grade-badge {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 1rem;
+        font-weight: 600;
+        min-width: 60px;
+        text-align: center;
+    }
+    
+    .grade-a { background: #d4edda; color: #155724; }
+    .grade-b { background: #d1ecf1; color: #0c5460; }
+    .grade-c { background: #fff3cd; color: #856404; }
+    .grade-d { background: #f8d7da; color: #721c24; }
+    .grade-f { background: #f5c6cb; color: #721c24; }
+    
+    .assessment-type-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-weight: 500;
+    }
+    
+    .type-quiz { background: #e3f2fd; color: #1565c0; }
+    .type-exam { background: #fce4ec; color: #c2185b; }
+    .type-assignment { background: #f3e5f5; color: #7b1fa2; }
+    .type-project { background: #e8f5e8; color: #2e7d32; }
+    .type-participation { background: #fff8e1; color: #f57c00; }
+    
+    .gpa-overview {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+    
+    .gpa-item {
+        text-align: center;
+        padding: 15px;
+    }
+    
+    .gpa-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .gpa-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .grade-chart {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    
+    .semester-filter {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .semester-tab {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 10px 20px;
+        margin-right: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-block;
+    }
+    
+    .semester-tab.active {
+        border-color: #3498db;
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .semester-tab:hover {
+        border-color: #3498db;
+    }
+    
+    .grade-trend {
+        height: 200px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6c757d;
+    }
+    
+    .no-grades {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Mes Notes et Évaluations</h3>
+            <p class="text-muted">Consultez vos résultats académiques par cours et semestre</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" onclick="exportGrades()">
+                <i class="fas fa-download me-1"></i>
+                Exporter Relevé
+            </button>
+        </div>
+    </div>
+
+    <!-- Vue d'ensemble GPA -->
+    <div class="gpa-overview">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="gpa-item">
+                    <span class="gpa-number">{{ overall_gpa or '0.0' }}</span>
+                    <span class="gpa-label">GPA Général</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="gpa-item">
+                    <span class="gpa-number">{{ semester_gpa or '0.0' }}</span>
+                    <span class="gpa-label">GPA Semestre</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="gpa-item">
+                    <span class="gpa-number">{{ total_credits or 0 }}</span>
+                    <span class="gpa-label">Crédits Total</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="gpa-item">
+                    <span class="gpa-number">{{ completed_courses or 0 }}</span>
+                    <span class="gpa-label">Cours Complétés</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres par semestre -->
+    <div class="semester-filter">
+        <div class="d-flex align-items-center">
+            <label class="form-label me-3 mb-0">Filtrer par semestre:</label>
+            <div>
+                <span class="semester-tab active" data-semester="all">
+                    <i class="fas fa-list me-1"></i>
+                    Tous
+                </span>
+                {% for semester in available_semesters %}
+                <span class="semester-tab" data-semester="{{ semester }}">
+                    {{ semester }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Notes par cours -->
+    {% if grades_by_course %}
+        {% for course_data in grades_by_course %}
+        <div class="course-grades-card" data-semester="{{ course_data.semester }}">
+            <div class="course-header">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h5 class="mb-1">{{ course_data.course_name }}</h5>
+                        <small>{{ course_data.course_code }} - {{ course_data.teacher_name }}</small>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="h4 mb-0">{{ course_data.course_average or 'N/A' }}</div>
+                        <small>Moyenne du cours</small>
+                    </div>
+                </div>
+            </div>
+            
+            {% if course_data.grades %}
+                {% for grade in course_data.grades %}
+                <div class="grade-item">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <span class="assessment-type-badge type-{{ grade.assessment_type }}">
+                                    {% if grade.assessment_type == 'quiz' %}Quiz
+                                    {% elif grade.assessment_type == 'exam' %}Examen
+                                    {% elif grade.assessment_type == 'assignment' %}Devoir
+                                    {% elif grade.assessment_type == 'project' %}Projet
+                                    {% elif grade.assessment_type == 'participation' %}Participation
+                                    {% else %}{{ grade.assessment_type }}{% endif %}
+                                </span>
+                                <div class="ms-3">
+                                    <h6 class="mb-1">{{ grade.assessment_name }}</h6>
+                                    <small class="text-muted">{{ grade.assessment_date }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3 text-center">
+                            <div class="h5 mb-0">{{ grade.points_earned }}/{{ grade.points_possible }}</div>
+                            <small class="text-muted">{{ grade.percentage }}%</small>
+                        </div>
+                        
+                        <div class="col-md-2 text-center">
+                            <span class="grade-badge grade-{{ grade.grade_letter.lower() }}">
+                                {{ grade.grade_letter }}
+                            </span>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            {% if grade.comments %}
+                            <small class="text-muted">
+                                <i class="fas fa-comment me-1"></i>
+                                {{ grade.comments }}
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <!-- Résumé du cours -->
+                <div class="grade-chart">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Répartition des Notes</h6>
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Quiz:</small>
+                                    <div class="fw-bold">{{ course_data.quiz_average or 'N/A' }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Examens:</small>
+                                    <div class="fw-bold">{{ course_data.exam_average or 'N/A' }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Devoirs:</small>
+                                    <div class="fw-bold">{{ course_data.assignment_average or 'N/A' }}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Projets:</small>
+                                    <div class="fw-bold">{{ course_data.project_average or 'N/A' }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Progression</h6>
+                            <div class="grade-trend">
+                                <i class="fas fa-chart-line fa-2x"></i>
+                                <span class="ms-2">Graphique de progression</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="no-grades">
+                    <i class="fas fa-graduation-cap fa-3x mb-3"></i>
+                    <h6>Aucune note disponible</h6>
+                    <p class="text-muted">Les notes pour ce cours apparaîtront ici une fois saisies</p>
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-graduation-cap fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucune note disponible</h5>
+                <p class="text-muted">Vos notes apparaîtront ici une fois que les professeurs les auront saisies</p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Statistiques détaillées -->
+    {% if grades_by_course %}
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Répartition des Notes
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 text-center">
+                            <div class="h4 text-success">{{ grade_distribution.a_count or 0 }}</div>
+                            <small class="text-muted">Notes A</small>
+                        </div>
+                        <div class="col-6 text-center">
+                            <div class="h4 text-info">{{ grade_distribution.b_count or 0 }}</div>
+                            <small class="text-muted">Notes B</small>
+                        </div>
+                        <div class="col-6 text-center">
+                            <div class="h4 text-warning">{{ grade_distribution.c_count or 0 }}</div>
+                            <small class="text-muted">Notes C</small>
+                        </div>
+                        <div class="col-6 text-center">
+                            <div class="h4 text-danger">{{ grade_distribution.d_f_count or 0 }}</div>
+                            <small class="text-muted">Notes D/F</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-trophy me-2"></i>
+                        Performances
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 mb-2">
+                            <small class="text-muted">Meilleure Note:</small>
+                            <div class="fw-bold text-success">{{ best_grade.percentage or 'N/A' }}% - {{ best_grade.assessment_name or 'N/A' }}</div>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <small class="text-muted">Note la Plus Récente:</small>
+                            <div class="fw-bold">{{ latest_grade.percentage or 'N/A' }}% - {{ latest_grade.assessment_name or 'N/A' }}</div>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">Tendance:</small>
+                            <div class="fw-bold text-{{ 'success' if grade_trend == 'up' else 'danger' if grade_trend == 'down' else 'info' }}">
+                                <i class="fas fa-arrow-{{ 'up' if grade_trend == 'up' else 'down' if grade_trend == 'down' else 'right' }} me-1"></i>
+                                {% if grade_trend == 'up' %}En amélioration
+                                {% elif grade_trend == 'down' %}En baisse
+                                {% else %}Stable{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function exportGrades() {
+        showAlert('Export du relevé de notes en cours de développement', 'info');
+    }
+
+    // Gestion des filtres par semestre
+    document.addEventListener('DOMContentLoaded', function() {
+        const semesterTabs = document.querySelectorAll('.semester-tab');
+        const courseCards = document.querySelectorAll('.course-grades-card');
+        
+        semesterTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Retirer la classe active de tous les filtres
+                semesterTabs.forEach(t => t.classList.remove('active'));
+                // Ajouter la classe active au filtre cliqué
+                this.classList.add('active');
+                
+                const selectedSemester = this.getAttribute('data-semester');
+                
+                // Afficher/masquer les cours
+                courseCards.forEach(card => {
+                    if (selectedSemester === 'all' || card.getAttribute('data-semester') === selectedSemester) {
+                        card.style.display = 'block';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Animation des cartes de notes
+        const gradeItems = document.querySelectorAll('.grade-item');
+        gradeItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(20px)';
+                item.style.transition = 'all 0.5s ease';
+                
+                setTimeout(() => {
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, 100);
+            }, index * 50);
+        });
+    });
+</script>
+{% endblock %}

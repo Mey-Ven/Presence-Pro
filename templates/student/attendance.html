@@ -1,0 +1,461 @@
+{% extends "base_role.html" %}
+
+{% block title %}Mes Présences - Système de Présence{% endblock %}
+
+{% block page_title %}Historique des Présences{% endblock %}
+
+{% block extra_css %}
+<style>
+    .attendance-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 4px solid #3498db;
+    }
+    
+    .attendance-record {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 3px solid #27ae60;
+        transition: all 0.2s;
+    }
+    
+    .attendance-record:hover {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .attendance-record.absent {
+        border-left-color: #e74c3c;
+        background: #fdf2f2;
+    }
+    
+    .attendance-record.late {
+        border-left-color: #f39c12;
+        background: #fef9e7;
+    }
+    
+    .attendance-status {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+    }
+    
+    .status-present { background-color: #27ae60; }
+    .status-absent { background-color: #e74c3c; }
+    .status-late { background-color: #f39c12; }
+    .status-excused { background-color: #9b59b6; }
+    
+    .stats-overview {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 15px;
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 25px;
+    }
+    
+    .course-filter-tab {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 10px 15px;
+        margin-right: 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-block;
+    }
+    
+    .course-filter-tab.active {
+        border-color: #3498db;
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .course-filter-tab:hover {
+        border-color: #3498db;
+    }
+    
+    .attendance-rate-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        font-weight: bold;
+        margin: 0 auto 10px;
+    }
+    
+    .rate-excellent { background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; }
+    .rate-good { background: linear-gradient(135deg, #2ecc71, #58d68d); color: white; }
+    .rate-warning { background: linear-gradient(135deg, #f39c12, #f4d03f); color: white; }
+    .rate-danger { background: linear-gradient(135deg, #e74c3c, #ec7063); color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Historique des Présences</h3>
+            <p class="text-muted">Consultez votre historique de présence détaillé par cours</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" onclick="exportAttendance()">
+                <i class="fas fa-download me-1"></i>
+                Exporter PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistiques générales -->
+    <div class="stats-overview">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ attendance_stats.attendance_rate or 0 }}%</span>
+                    <span class="stat-label">Taux de Présence</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ attendance_stats.total_sessions or 0 }}</span>
+                    <span class="stat-label">Sessions Total</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ attendance_stats.present_count or 0 }}</span>
+                    <span class="stat-label">Présent</span>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-item">
+                    <span class="stat-number">{{ attendance_stats.absent_count or 0 }}</span>
+                    <span class="stat-label">Absent</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-section">
+        <div class="row align-items-end">
+            <div class="col-md-3">
+                <label for="startDate" class="form-label">Date de début</label>
+                <input type="date" class="form-control" id="startDate" value="{{ start_date }}">
+            </div>
+            <div class="col-md-3">
+                <label for="endDate" class="form-label">Date de fin</label>
+                <input type="date" class="form-control" id="endDate" value="{{ end_date }}">
+            </div>
+            <div class="col-md-3">
+                <label for="statusFilter" class="form-label">Statut</label>
+                <select class="form-control" id="statusFilter">
+                    <option value="">Tous les statuts</option>
+                    <option value="present">Présent</option>
+                    <option value="absent">Absent</option>
+                    <option value="late">En retard</option>
+                    <option value="excused">Excusé</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" onclick="filterAttendance()">
+                    <i class="fas fa-filter me-1"></i>
+                    Filtrer
+                </button>
+            </div>
+        </div>
+        
+        <!-- Filtres par cours -->
+        <div class="mt-3">
+            <label class="form-label">Filtrer par cours:</label>
+            <div>
+                <span class="course-filter-tab active" data-course="all">
+                    <i class="fas fa-list me-1"></i>
+                    Tous les cours
+                </span>
+                {% for course in enrolled_courses %}
+                <span class="course-filter-tab" data-course="{{ course.id_course }}">
+                    {{ course.course_code }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Présences par cours -->
+    {% if attendance_by_course %}
+        {% for course_data in attendance_by_course %}
+        <div class="attendance-card course-section" data-course="{{ course_data.course.id_course }}">
+            <div class="row align-items-center mb-3">
+                <div class="col-md-8">
+                    <h5 class="mb-1">{{ course_data.course.course_name }}</h5>
+                    <p class="text-muted mb-0">{{ course_data.course.course_code }} - {{ course_data.course.teacher_name }}</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <div class="attendance-rate-circle 
+                        {% if course_data.attendance_rate >= 90 %}rate-excellent
+                        {% elif course_data.attendance_rate >= 80 %}rate-good
+                        {% elif course_data.attendance_rate >= 70 %}rate-warning
+                        {% else %}rate-danger{% endif %}">
+                        {{ course_data.attendance_rate or 0 }}%
+                    </div>
+                    <small class="text-muted">Taux de présence</small>
+                </div>
+            </div>
+            
+            <!-- Historique des présences -->
+            {% if course_data.attendance_records %}
+                {% for record in course_data.attendance_records %}
+                <div class="attendance-record {{ record.status }}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <span class="attendance-status status-{{ record.status }}"></span>
+                                <div>
+                                    <div class="fw-bold">{{ record.date }}</div>
+                                    <small class="text-muted">{{ record.time }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <span class="badge bg-{{ 'success' if record.status == 'present' else 'danger' if record.status == 'absent' else 'warning' if record.status == 'late' else 'secondary' }}">
+                                {% if record.status == 'present' %}Présent
+                                {% elif record.status == 'absent' %}Absent
+                                {% elif record.status == 'late' %}En retard
+                                {% else %}Excusé{% endif %}
+                            </span>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <small class="text-muted">
+                                <i class="fas fa-clock me-1"></i>
+                                {{ record.session_time or 'Non spécifié' }}
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-3 text-end">
+                            {% if record.status == 'absent' and not record.justified %}
+                            <button class="btn btn-outline-warning btn-sm" 
+                                    onclick="justifyAbsence('{{ record.id }}', '{{ record.date }}')">
+                                <i class="fas fa-file-alt me-1"></i>
+                                Justifier
+                            </button>
+                            {% elif record.justified %}
+                            <span class="badge bg-info">Justifié</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if record.notes %}
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-sticky-note me-1"></i>
+                            {{ record.notes }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h6>Aucune présence enregistrée</h6>
+                    <p class="text-muted">Les présences pour ce cours apparaîtront ici</p>
+                </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-calendar-check fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucune présence enregistrée</h5>
+                <p class="text-muted">Vos présences apparaîtront ici une fois que vous aurez assisté aux cours</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal Justification d'Absence -->
+<div class="modal fade" id="justifyAbsenceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Justifier une Absence</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="justificationForm">
+                    <input type="hidden" id="attendanceId" name="attendance_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Date d'absence</label>
+                        <input type="text" class="form-control" id="absenceDate" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="reason" class="form-label">Motif de l'absence *</label>
+                        <select class="form-control" id="reason" name="reason" required>
+                            <option value="">Sélectionner un motif...</option>
+                            <option value="maladie">Maladie</option>
+                            <option value="rendez_vous_medical">Rendez-vous médical</option>
+                            <option value="urgence_familiale">Urgence familiale</option>
+                            <option value="transport">Problème de transport</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description détaillée *</label>
+                        <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="document" class="form-label">Document justificatif</label>
+                        <input type="file" class="form-control" id="document" name="document" accept=".pdf,.jpg,.jpeg,.png">
+                        <small class="text-muted">Formats acceptés: PDF, JPG, PNG (max 5MB)</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="submitJustification()">
+                    <i class="fas fa-paper-plane me-2"></i>
+                    Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterAttendance() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const status = document.getElementById('statusFilter').value;
+        
+        // Construire l'URL avec les paramètres de filtre
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        if (status) params.append('status', status);
+        
+        window.location.href = `{{ url_for('student.attendance') }}?${params.toString()}`;
+    }
+
+    function justifyAbsence(attendanceId, date) {
+        document.getElementById('attendanceId').value = attendanceId;
+        document.getElementById('absenceDate').value = date;
+        
+        // Réinitialiser le formulaire
+        document.getElementById('justificationForm').reset();
+        document.getElementById('attendanceId').value = attendanceId;
+        document.getElementById('absenceDate').value = date;
+        
+        new bootstrap.Modal(document.getElementById('justifyAbsenceModal')).show();
+    }
+
+    function submitJustification() {
+        const form = document.getElementById('justificationForm');
+        const formData = new FormData(form);
+        
+        fetch('/student/justify_absence', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('justifyAbsenceModal')).hide();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showAlert('Erreur lors de l\'envoi de la justification', 'danger');
+        });
+    }
+
+    function exportAttendance() {
+        showAlert('Export PDF en cours de développement', 'info');
+    }
+
+    // Gestion des filtres par cours
+    document.addEventListener('DOMContentLoaded', function() {
+        const courseFilters = document.querySelectorAll('.course-filter-tab');
+        const courseSections = document.querySelectorAll('.course-section');
+        
+        courseFilters.forEach(filter => {
+            filter.addEventListener('click', function() {
+                // Retirer la classe active de tous les filtres
+                courseFilters.forEach(f => f.classList.remove('active'));
+                // Ajouter la classe active au filtre cliqué
+                this.classList.add('active');
+                
+                const selectedCourse = this.getAttribute('data-course');
+                
+                // Afficher/masquer les sections de cours
+                courseSections.forEach(section => {
+                    if (selectedCourse === 'all' || section.getAttribute('data-course') === selectedCourse) {
+                        section.style.display = 'block';
+                    } else {
+                        section.style.display = 'none';
+                    }
+                });
+            });
+        });
+        
+        // Définir les dates par défaut
+        const today = new Date();
+        const oneMonthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        if (!document.getElementById('startDate').value) {
+            document.getElementById('startDate').value = oneMonthAgo.toISOString().split('T')[0];
+        }
+        if (!document.getElementById('endDate').value) {
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        }
+    });
+</script>
+{% endblock %}

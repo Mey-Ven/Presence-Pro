@@ -1,0 +1,310 @@
+{% extends "base_role.html" %}
+
+{% block title %}Gestion des Cours - Système de Présence{% endblock %}
+
+{% block page_title %}Gestion des Cours{% endblock %}
+
+{% block extra_css %}
+<style>
+    .course-card {
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+        border-left: 4px solid #3498db;
+    }
+    
+    .course-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .course-header {
+        display: flex;
+        justify-content: between;
+        align-items: start;
+        margin-bottom: 15px;
+    }
+    
+    .course-actions {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-course {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    
+    .enrollment-progress {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 15px;
+    }
+    
+    .progress-bar-custom {
+        height: 8px;
+        border-radius: 4px;
+        background: #e9ecef;
+        overflow: hidden;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #3498db, #2ecc71);
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête avec bouton d'ajout -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h3>Mes Cours</h3>
+            <p class="text-muted">Gérez vos cours, horaires et étudiants inscrits</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCourseModal">
+                <i class="fas fa-plus me-2"></i>
+                Nouveau Cours
+            </button>
+        </div>
+    </div>
+
+    <!-- Liste des cours -->
+    <div class="row">
+        {% if courses %}
+            {% for course in courses %}
+            <div class="col-lg-6 mb-4">
+                <div class="course-card">
+                    <div class="course-header">
+                        <div class="flex-grow-1">
+                            <h5 class="mb-1">{{ course.course_name }}</h5>
+                            <p class="text-muted mb-2">{{ course.course_code }}</p>
+                            <span class="badge bg-primary">{{ course.credits }} crédits</span>
+                            <span class="badge bg-secondary ms-1">{{ course.department or 'Général' }}</span>
+                        </div>
+                        <div class="course-actions">
+                            <button class="btn btn-outline-primary btn-course" 
+                                    onclick="editCourse('{{ course.id_course }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-outline-danger btn-course" 
+                                    onclick="deleteCourse('{{ course.id_course }}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {% if course.description %}
+                    <p class="text-muted small mb-3">{{ course.description }}</p>
+                    {% endif %}
+                    
+                    <div class="enrollment-progress">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small font-weight-bold">Étudiants Inscrits</span>
+                            <span class="small">{{ course.enrolled_count }}/{{ course.max_students }}</span>
+                        </div>
+                        <div class="progress-bar-custom">
+                            <div class="progress-fill" 
+                                 style="width: {{ (course.enrolled_count / course.max_students * 100) if course.max_students > 0 else 0 }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ course.semester or 'Semestre non défini' }}
+                        </small>
+                        <div>
+                            <a href="{{ url_for('teacher.schedule') }}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                Horaires
+                            </a>
+                            <a href="{{ url_for('teacher.grades') }}" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-graduation-cap me-1"></i>
+                                Notes
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Aucun cours assigné</h5>
+                        <p class="text-muted">Commencez par créer votre premier cours</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCourseModal">
+                            <i class="fas fa-plus me-2"></i>
+                            Créer un Cours
+                        </button>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Ajouter/Modifier Cours -->
+<div class="modal fade" id="addCourseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="courseModalTitle">Nouveau Cours</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="courseForm">
+                    <input type="hidden" id="courseId" name="course_id">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="courseCode" class="form-label">Code du Cours *</label>
+                            <input type="text" class="form-control" id="courseCode" name="course_code" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="courseName" class="form-label">Nom du Cours *</label>
+                            <input type="text" class="form-control" id="courseName" name="course_name" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="courseDescription" class="form-label">Description</label>
+                        <textarea class="form-control" id="courseDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="courseCredits" class="form-label">Crédits</label>
+                            <input type="number" class="form-control" id="courseCredits" name="credits" value="3" min="1" max="10">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="maxStudents" class="form-label">Étudiants Max</label>
+                            <input type="number" class="form-control" id="maxStudents" name="max_students" value="30" min="1" max="100">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="department" class="form-label">Département</label>
+                            <input type="text" class="form-control" id="department" name="department">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="semester" class="form-label">Semestre</label>
+                            <select class="form-control" id="semester" name="semester">
+                                <option value="">Sélectionner...</option>
+                                <option value="Automne 2024">Automne 2024</option>
+                                <option value="Hiver 2025">Hiver 2025</option>
+                                <option value="Printemps 2025">Printemps 2025</option>
+                                <option value="Été 2025">Été 2025</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="academicYear" class="form-label">Année Académique</label>
+                            <input type="text" class="form-control" id="academicYear" name="academic_year" value="2024-2025">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" onclick="saveCourse()">
+                    <i class="fas fa-save me-2"></i>
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let isEditMode = false;
+    let currentCourseId = null;
+
+    function editCourse(courseId) {
+        // Cette fonction chargerait les données du cours pour modification
+        isEditMode = true;
+        currentCourseId = courseId;
+        document.getElementById('courseModalTitle').textContent = 'Modifier le Cours';
+        
+        // Ici, vous feriez un appel AJAX pour charger les données du cours
+        // Pour l'instant, on ouvre juste le modal
+        new bootstrap.Modal(document.getElementById('addCourseModal')).show();
+    }
+
+    function deleteCourse(courseId) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce cours ? Cette action est irréversible.')) {
+            fetch(`/teacher/delete_course/${courseId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                showAlert('Erreur lors de la suppression du cours', 'danger');
+            });
+        }
+    }
+
+    function saveCourse() {
+        const form = document.getElementById('courseForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        const url = isEditMode ? `/teacher/update_course/${currentCourseId}` : '/teacher/create_course';
+        const method = isEditMode ? 'PUT' : 'POST';
+        
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                bootstrap.Modal.getInstance(document.getElementById('addCourseModal')).hide();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            showAlert('Erreur lors de l\'enregistrement du cours', 'danger');
+        });
+    }
+
+    // Réinitialiser le modal quand il se ferme
+    document.getElementById('addCourseModal').addEventListener('hidden.bs.modal', function () {
+        document.getElementById('courseForm').reset();
+        document.getElementById('courseModalTitle').textContent = 'Nouveau Cours';
+        isEditMode = false;
+        currentCourseId = null;
+    });
+</script>
+{% endblock %}

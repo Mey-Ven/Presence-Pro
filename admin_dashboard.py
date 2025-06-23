@@ -3,7 +3,7 @@ Tableau de bord d'administration web pour le système de reconnaissance faciale
 Application Flask complète avec gestion des étudiants, surveillance des présences et administration système
 """
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session, send_file
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session, send_file, Response
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -226,7 +226,7 @@ def add_student():
             
             if with_facial:
                 # Rediriger vers la page d'entraînement facial
-                return redirect(url_for('train_student', student_id=id_etudiant))
+                return redirect(url_for('train_student_page', student_id=id_etudiant))
             else:
                 return redirect(url_for('students'))
                 
@@ -310,44 +310,7 @@ def reset_student_password(student_id):
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erreur: {str(e)}'})
 
-@app.route('/students/<student_id>/train', methods=['GET', 'POST'])
-@require_auth
-def train_student(student_id):
-    """Entraînement facial pour un étudiant"""
-    try:
-        # Récupérer l'étudiant
-        students = db.obtenir_tous_etudiants()
-        student = None
-        for s in students:
-            if s.get('IdEtudiant') == student_id:
-                student = s
-                break
-
-        if not student:
-            flash('Étudiant non trouvé', 'error')
-            return redirect(url_for('students'))
-
-        if request.method == 'POST':
-            # Lancer l'entraînement facial
-            trainer = ftm.FacialTrainingModule()
-            success = trainer.train_student(
-                student.get('PrenomEtudiant'),
-                student.get('NomEtudiant'),
-                max_photos=15
-            )
-
-            if success:
-                flash(f'Entraînement facial terminé pour {student.get("PrenomEtudiant")} {student.get("NomEtudiant")}', 'success')
-            else:
-                flash('Échec de l\'entraînement facial', 'error')
-
-            return redirect(url_for('students'))
-
-        return render_template('train_student.html', student=student)
-
-    except Exception as e:
-        flash(f'Erreur: {str(e)}', 'error')
-        return redirect(url_for('students'))
+# Route obsolète supprimée - utiliser train_student_page() à la place
 
 @app.route('/api/student/<student_id>/photo')
 def student_photo(student_id):
@@ -1133,40 +1096,204 @@ def bulk_student_action():
 @require_auth
 def api_capture_photo():
     """Capture une photo pour l'entraînement facial"""
+    global training_camera
     try:
-        if 'photo' not in request.files:
-            return jsonify({'success': False, 'message': 'Aucune photo fournie'})
+        # Vérifier si c'est une requête JSON (nouvelle version) ou FormData (ancienne)
+        if request.is_json:
+            data = request.get_json()
+            student_id = data.get('student_id')
+            photo_index = data.get('photo_index', 0)
 
-        photo = request.files['photo']
-        student_id = request.form.get('student_id')
-        photo_index = request.form.get('photo_index', '0')
+            # Capturer depuis la caméra backend
+            import cv2
+            if training_camera is None:
+                training_camera = cv2.VideoCapture(0)
 
-        if not student_id:
-            return jsonify({'success': False, 'message': 'ID étudiant manquant'})
+            if not training_camera.isOpened():
+                return jsonify({'success': False, 'message': 'Caméra non accessible'})
 
-        # Obtenir les informations de l'étudiant pour créer le bon dossier
-        student = db.obtenir_etudiant_par_id(student_id)
-        if not student:
-            return jsonify({'success': False, 'message': 'Étudiant non trouvé'})
+            ret, frame = training_camera.read()
+            if not ret or frame is None:
+                return jsonify({'success': False, 'message': 'Impossible de capturer une image'})
 
-        # Créer le nom du dossier basé sur le nom de l'étudiant
-        student_name = f"{student.get('prenom', '')} {student.get('nom', '')}".strip()
-        student_folder = os.path.join('dataset', student_name)
-        os.makedirs(student_folder, exist_ok=True)
+            # Obtenir les informations de l'étudiant
+            student = db.obtenir_etudiant_par_id(student_id)
+            if not student:
+                return jsonify({'success': False, 'message': 'Étudiant non trouvé'})
 
-        # Sauvegarder la photo
-        filename = f'photo_{photo_index}.jpg'
-        photo_path = os.path.join(student_folder, filename)
-        photo.save(photo_path)
+            # Créer le dossier de l'étudiant
+            student_name = f"{student.get('prenom', '')} {student.get('nom', '')}".strip()
+            student_folder = os.path.join('dataset', student_name)
+            os.makedirs(student_folder, exist_ok=True)
 
-        return jsonify({
-            'success': True,
-            'message': 'Photo sauvegardée',
-            'photo_path': photo_path
-        })
+            # Sauvegarder la photo
+            filename = f'photo_{int(photo_index):03d}.jpg'
+            photo_path = os.path.join(student_folder, filename)
+
+            # Save the photo with high quality
+            success = cv2.imwrite(photo_path, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+            if success and os.path.exists(photo_path):
+                file_size = os.path.getsize(photo_path)
+                print(f"📸 Photo saved: {filename} ({file_size} bytes) for {student_name}")
+
+                return jsonify({
+                    'success': True,
+                    'message': f'Photo {filename} sauvegardée avec succès',
+                    'photo_path': photo_path,
+                    'filename': filename,
+                    'file_size': file_size
+                })
+            else:
+                print(f"❌ Failed to save photo: {filename} for {student_name}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Erreur lors de la sauvegarde de {filename}',
+                    'photo_path': photo_path
+                })
+
+        else:
+            # Ancienne version avec FormData (pour compatibilité)
+            if 'photo' not in request.files:
+                return jsonify({'success': False, 'message': 'Aucune photo fournie'})
+
+            photo = request.files['photo']
+            student_id = request.form.get('student_id')
+            photo_index = request.form.get('photo_index', '0')
+
+            if not student_id:
+                return jsonify({'success': False, 'message': 'ID étudiant manquant'})
+
+            # Obtenir les informations de l'étudiant pour créer le bon dossier
+            student = db.obtenir_etudiant_par_id(student_id)
+            if not student:
+                return jsonify({'success': False, 'message': 'Étudiant non trouvé'})
+
+            # Créer le nom du dossier basé sur le nom de l'étudiant
+            student_name = f"{student.get('prenom', '')} {student.get('nom', '')}".strip()
+            student_folder = os.path.join('dataset', student_name)
+            os.makedirs(student_folder, exist_ok=True)
+
+            # Sauvegarder la photo
+            filename = f'photo_{photo_index}.jpg'
+            photo_path = os.path.join(student_folder, filename)
+            photo.save(photo_path)
+
+            return jsonify({
+                'success': True,
+                'message': 'Photo sauvegardée',
+                'photo_path': photo_path
+            })
 
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
+
+# Variables globales pour la caméra d'entraînement
+training_camera = None
+
+@app.route('/api/training/test-camera', methods=['POST'])
+@require_auth
+def api_test_camera():
+    """Tester l'accès à la caméra"""
+    try:
+        import cv2
+        cap = cv2.VideoCapture(0)
+
+        if not cap.isOpened():
+            return jsonify({'success': False, 'message': 'Caméra inaccessible'})
+
+        ret, frame = cap.read()
+        cap.release()
+
+        if ret and frame is not None:
+            return jsonify({'success': True, 'message': 'Caméra accessible'})
+        else:
+            return jsonify({'success': False, 'message': 'Impossible de lire la caméra'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erreur: {str(e)}'})
+
+@app.route('/api/training/video-feed')
+@require_auth
+def api_video_feed():
+    """Flux vidéo en direct pour l'entraînement"""
+    def generate_frames():
+        global training_camera
+        import cv2
+
+        if training_camera is None:
+            training_camera = cv2.VideoCapture(0)
+
+        while training_camera and training_camera.isOpened():
+            ret, frame = training_camera.read()
+            if not ret:
+                break
+
+            # Encoder la frame en JPEG
+            _, buffer = cv2.imencode('.jpg', frame)
+            frame_bytes = buffer.tobytes()
+
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/api/training/stop-camera', methods=['POST'])
+@require_auth
+def api_stop_camera():
+    """Arrêter la caméra d'entraînement"""
+    global training_camera
+    try:
+        if training_camera:
+            training_camera.release()
+            training_camera = None
+        return jsonify({'success': True, 'message': 'Caméra arrêtée'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)})
+
+@app.route('/api/training/capture-preview', methods=['POST'])
+@require_auth
+def api_capture_preview():
+    """Capturer une image de prévisualisation pour l'affichage"""
+    global training_camera
+    try:
+        import cv2
+
+        if training_camera is None:
+            training_camera = cv2.VideoCapture(0)
+
+        if not training_camera.isOpened():
+            return jsonify({'success': False, 'message': 'Caméra non accessible'}), 500
+
+        ret, frame = training_camera.read()
+        if not ret or frame is None:
+            return jsonify({'success': False, 'message': 'Impossible de capturer une image'}), 500
+
+        # Encoder l'image en JPEG
+        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+
+        # Retourner l'image comme réponse binaire
+        return Response(buffer.tobytes(), mimetype='image/jpeg')
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/training/photo/<path:photo_path>')
+@require_auth
+def api_get_photo(photo_path):
+    """Récupérer une photo d'entraînement"""
+    try:
+        import os
+        # Ensure the path is relative to the current directory
+        if not os.path.isabs(photo_path):
+            photo_path = os.path.join(os.getcwd(), photo_path)
+
+        if os.path.exists(photo_path):
+            return send_file(photo_path)
+        else:
+            return jsonify({'success': False, 'message': f'Photo not found: {photo_path}'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/training/complete', methods=['POST'])
 @require_auth
