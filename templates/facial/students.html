@@ -1,0 +1,335 @@
+{% extends "base_role.html" %}
+
+{% block title %}Gestion des Étudiants - Reconnaissance Faciale{% endblock %}
+
+{% block page_title %}Gestion des Étudiants pour l'IA{% endblock %}
+
+{% block extra_css %}
+<style>
+    .student-card {
+        background: white;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        transition: transform 0.3s ease;
+    }
+    
+    .student-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .student-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+    }
+    
+    .encoding-status {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .status-trained {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-not-trained {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .stats-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 30px;
+    }
+    
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- En-tête avec statistiques -->
+    <div class="stats-header">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h3 class="mb-2">
+                    <i class="fas fa-user-graduate me-2"></i>
+                    Gestion des Étudiants pour l'IA
+                </h3>
+                <p class="mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    {{ students|length }} étudiants au total
+                    <span class="ms-3">
+                        <i class="fas fa-brain me-2"></i>
+                        {{ students|selectattr('has_encoding')|list|length }} avec encodage
+                    </span>
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <button type="button" class="btn btn-light btn-lg" onclick="reloadEncodings()">
+                    <i class="fas fa-sync me-2"></i>
+                    Recharger Encodages
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="filter-card">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="fas fa-search"></i>
+                    </span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Rechercher un étudiant..." onkeyup="filterStudents()">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="statusFilter" onchange="filterStudents()">
+                    <option value="">Tous les statuts</option>
+                    <option value="trained">Avec encodage</option>
+                    <option value="not-trained">Sans encodage</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="button" class="btn btn-outline-primary w-100" onclick="clearFilters()">
+                    <i class="fas fa-times me-2"></i>
+                    Effacer Filtres
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des étudiants -->
+    <div class="row" id="studentsContainer">
+        {% for student in students %}
+        <div class="col-md-6 col-lg-4 student-item" 
+             data-name="{{ student.full_name.lower() }}" 
+             data-status="{{ 'trained' if student.has_encoding else 'not-trained' }}">
+            <div class="student-card">
+                <div class="d-flex align-items-start mb-3">
+                    <div class="student-avatar me-3">
+                        {{ student.first_name[0] }}{{ student.last_name[0] }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">{{ student.full_name }}</h6>
+                        <small class="text-muted">{{ student.email }}</small>
+                        <div class="mt-2">
+                            <span class="encoding-status {{ 'status-trained' if student.has_encoding else 'status-not-trained' }}">
+                                {% if student.has_encoding %}
+                                    <i class="fas fa-check me-1"></i>
+                                    Encodage Créé
+                                {% else %}
+                                    <i class="fas fa-times me-1"></i>
+                                    Pas d'Encodage
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    {% if not student.has_encoding %}
+                    <a href="{{ url_for('facial.capture_student', student_id=student.id) }}" 
+                       class="btn btn-primary btn-sm">
+                        <i class="fas fa-camera me-1"></i>
+                        Capturer
+                    </a>
+                    {% else %}
+                    <button type="button" class="btn btn-success btn-sm" disabled>
+                        <i class="fas fa-check me-1"></i>
+                        Capturé
+                    </button>
+                    {% endif %}
+                    
+                    {% if student.has_encoding %}
+                    <button type="button" class="btn btn-warning btn-sm" onclick="retrainStudent('{{ student.id }}', '{{ student.full_name }}')">
+                        <i class="fas fa-redo me-1"></i>
+                        Re-entraîner
+                    </button>
+                    
+                    <button type="button" class="btn btn-danger btn-sm" onclick="deleteEncoding('{{ student.id }}', '{{ student.full_name }}')">
+                        <i class="fas fa-trash me-1"></i>
+                        Supprimer
+                    </button>
+                    {% endif %}
+                </div>
+
+                {% if student.has_encoding %}
+                <div class="mt-2">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        {{ student.encoding_count }} encodage(s) disponible(s)
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Message si aucun étudiant -->
+    {% if not students %}
+    <div class="text-center py-5">
+        <i class="fas fa-user-graduate fa-4x text-muted mb-3"></i>
+        <h5 class="text-muted">Aucun étudiant trouvé</h5>
+        <p class="text-muted">Les étudiants actifs apparaîtront ici pour la gestion des encodages faciaux</p>
+    </div>
+    {% endif %}
+
+    <!-- Zone de statut -->
+    <div class="alert alert-info" id="statusAlert" style="display: none;">
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" id="statusSpinner" style="display: none;"></div>
+            <span id="statusMessage">Prêt</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showStatus(message, type = 'info', showSpinner = false) {
+        const alert = document.getElementById('statusAlert');
+        const spinner = document.getElementById('statusSpinner');
+        const messageEl = document.getElementById('statusMessage');
+        
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+        messageEl.textContent = message;
+        spinner.style.display = showSpinner ? 'inline-block' : 'none';
+    }
+
+    function filterStudents() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value;
+        const students = document.querySelectorAll('.student-item');
+        
+        students.forEach(student => {
+            const name = student.getAttribute('data-name');
+            const status = student.getAttribute('data-status');
+            
+            const matchesSearch = name.includes(searchTerm);
+            const matchesStatus = !statusFilter || status === statusFilter;
+            
+            if (matchesSearch && matchesStatus) {
+                student.style.display = 'block';
+            } else {
+                student.style.display = 'none';
+            }
+        });
+    }
+
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        filterStudents();
+    }
+
+    function reloadEncodings() {
+        showStatus('Rechargement des encodages...', 'info', true);
+        
+        fetch('/facial/api/reload_encodings', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showStatus(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur: ' + error.message, 'danger');
+        });
+    }
+
+    function retrainStudent(studentId, studentName) {
+        if (!confirm(`Voulez-vous re-entraîner l'encodage facial pour ${studentName} ?`)) {
+            return;
+        }
+        
+        showStatus(`Re-entraînement en cours pour ${studentName}...`, 'info', true);
+        
+        fetch(`/facial/api/train/${studentId}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showStatus(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur: ' + error.message, 'danger');
+        });
+    }
+
+    function deleteEncoding(studentId, studentName) {
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer l'encodage facial de ${studentName} ?\n\nCette action est irréversible et nécessitera une nouvelle capture d'images.`)) {
+            return;
+        }
+        
+        showStatus(`Suppression de l'encodage pour ${studentName}...`, 'warning', true);
+        
+        fetch(`/facial/api/delete_encoding/${studentId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                showStatus(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur: ' + error.message, 'danger');
+        });
+    }
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        showStatus('{{ students|length }} étudiants chargés, {{ students|selectattr("has_encoding")|list|length }} avec encodage facial', 'info');
+    });
+</script>
+{% endblock %}

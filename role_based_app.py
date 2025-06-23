@@ -27,6 +27,7 @@ from student_dashboard import student_bp
 from teacher_dashboard import teacher_bp
 from parent_dashboard import parent_bp
 from admin_enhanced import admin_enhanced_bp
+from facial_recognition_routes import facial_bp
 
 # Import enhanced database setup
 from enhanced_database import create_enhanced_tables, insert_default_admin, insert_sample_data
@@ -45,6 +46,7 @@ app.register_blueprint(student_bp)
 app.register_blueprint(teacher_bp)
 app.register_blueprint(parent_bp)
 app.register_blueprint(admin_enhanced_bp)
+app.register_blueprint(facial_bp)
 
 # Initialize enhanced database
 def initialize_system():
@@ -299,6 +301,9 @@ def inject_navigation():
             {'name': 'Dashboard', 'url': url_for('admin_enhanced.dashboard'), 'icon': 'fas fa-tachometer-alt'},
             {'name': 'Users', 'url': url_for('admin_enhanced.users'), 'icon': 'fas fa-users'},
             {'name': 'Courses', 'url': url_for('admin_enhanced.courses_management'), 'icon': 'fas fa-book'},
+            {'name': 'Reconnaissance', 'url': url_for('facial.recognition_control'), 'icon': 'fas fa-camera'},
+            {'name': 'Étudiants IA', 'url': url_for('facial.students_management'), 'icon': 'fas fa-user-graduate'},
+            {'name': 'Présences IA', 'url': url_for('facial.attendance_history'), 'icon': 'fas fa-history'},
             {'name': 'Reports', 'url': url_for('admin_enhanced.system_reports'), 'icon': 'fas fa-chart-bar'},
             {'name': 'Messages', 'url': url_for('admin_enhanced.communication_hub'), 'icon': 'fas fa-envelope'},
             {'name': 'Audit', 'url': url_for('admin_enhanced.audit_trail'), 'icon': 'fas fa-history'},
@@ -310,7 +315,9 @@ def inject_navigation():
             {'name': 'Courses', 'url': url_for('teacher.courses'), 'icon': 'fas fa-book'},
             {'name': 'Schedule', 'url': url_for('teacher.schedule'), 'icon': 'fas fa-calendar'},
             {'name': 'Grades', 'url': url_for('teacher.grades'), 'icon': 'fas fa-graduation-cap'},
-            {'name': 'Attendance', 'url': url_for('teacher.attendance'), 'icon': 'fas fa-check-circle'}
+            {'name': 'Attendance', 'url': url_for('teacher.attendance'), 'icon': 'fas fa-check-circle'},
+            {'name': 'Reconnaissance', 'url': url_for('facial.recognition_control'), 'icon': 'fas fa-camera'},
+            {'name': 'Étudiants IA', 'url': url_for('facial.students_management'), 'icon': 'fas fa-user-graduate'}
         ]
     elif role == 'student':
         navigation = [

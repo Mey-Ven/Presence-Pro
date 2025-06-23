@@ -183,8 +183,9 @@ def get_student_info(user_id):
     """Get student information by user ID"""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     try:
+        # Try students_extended table first
         cursor.execute('''
             SELECT se.id_student, se.etudiant_id, se.class_name, se.enrollment_date,
                    u.first_name, u.last_name, u.email, u.phone,
@@ -194,7 +195,7 @@ def get_student_info(user_id):
             LEFT JOIN etudiants e ON se.etudiant_id = e.id_etudiant
             WHERE se.user_id = ?
         ''', (user_id,))
-        
+
         result = cursor.fetchone()
         if result:
             return {
@@ -208,8 +209,47 @@ def get_student_info(user_id):
                 'phone': result[7],
                 'full_name': f"{result[4]} {result[5]}"
             }
+
+        # Fallback to etudiants table
+        cursor.execute('''
+            SELECT e.id_student, u.first_name, u.last_name, u.email, u.phone, e.classe
+            FROM etudiants e
+            JOIN users u ON e.id_student = u.id
+            WHERE e.id_student = ?
+        ''', (user_id,))
+
+        result = cursor.fetchone()
+        if result:
+            return {
+                'id_student': result[0],
+                'etudiant_id': result[0],
+                'class_name': result[5] or 'Non assigné',
+                'enrollment_date': None,
+                'first_name': result[1],
+                'last_name': result[2],
+                'email': result[3],
+                'phone': result[4],
+                'full_name': f"{result[1]} {result[2]}"
+            }
+
+        # If not found in either table, create basic student info
+        cursor.execute('SELECT first_name, last_name, email, phone FROM users WHERE id = ? AND role = "student"', (user_id,))
+        result = cursor.fetchone()
+        if result:
+            return {
+                'id_student': user_id,
+                'etudiant_id': user_id,
+                'class_name': 'Non assigné',
+                'enrollment_date': None,
+                'first_name': result[0],
+                'last_name': result[1],
+                'email': result[2],
+                'phone': result[3],
+                'full_name': f"{result[0]} {result[1]}"
+            }
+
         return None
-        
+
     except Exception as e:
         print(f"Error getting student info: {e}")
         return None

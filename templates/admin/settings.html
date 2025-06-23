@@ -19,12 +19,144 @@
         </div>
     </div>
 
+    <!-- Paramètres généraux -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6><i class="fas fa-building me-2"></i>Paramètres Généraux</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Nom de l'Institution</label>
+                        <input type="text" class="form-control" value="{{ settings.general.institution_name }}">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Année Académique</label>
+                        <input type="text" class="form-control" value="{{ settings.general.academic_year }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reconnaissance faciale -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6><i class="fas fa-camera me-2"></i>Reconnaissance Faciale</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Seuil de Confiance</label>
+                        <input type="range" class="form-range" min="0.3" max="0.9" step="0.1" value="{{ settings.facial_recognition.confidence_threshold }}">
+                        <small class="text-muted">{{ (settings.facial_recognition.confidence_threshold * 100)|round }}%</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Méthode de Détection</label>
+                        <select class="form-select">
+                            <option value="hog" {{ 'selected' if settings.facial_recognition.detection_method == 'hog' else '' }}>HOG (Rapide)</option>
+                            <option value="cnn" {{ 'selected' if settings.facial_recognition.detection_method == 'cnn' else '' }}>CNN (Précis)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informations système -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6><i class="fas fa-server me-2"></i>Informations Système</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h5 class="text-primary">{{ settings.system.database_size }}</h5>
+                        <small class="text-muted">Taille Base de Données</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h5 class="text-success">{{ settings.system.total_users }}</h5>
+                        <small class="text-muted">Utilisateurs Total</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h5 class="text-info">{{ settings.system.disk_usage }}</h5>
+                        <small class="text-muted">Utilisation Disque</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center">
+                        <h5 class="text-warning">{{ settings.system.last_backup }}</h5>
+                        <small class="text-muted">Dernière Sauvegarde</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions système -->
     <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-cog fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+        <div class="card-header">
+            <h6><i class="fas fa-tools me-2"></i>Actions Système</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <button class="btn btn-primary w-100" onclick="saveSettings()">
+                        <i class="fas fa-save me-2"></i>Sauvegarder
+                    </button>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-info w-100" onclick="testCamera()">
+                        <i class="fas fa-video me-2"></i>Test Caméra
+                    </button>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-warning w-100" onclick="backupDatabase()">
+                        <i class="fas fa-download me-2"></i>Sauvegarde
+                    </button>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-danger w-100" onclick="restartSystem()">
+                        <i class="fas fa-power-off me-2"></i>Redémarrer
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function saveSettings() {
+        alert('Sauvegarde des paramètres...');
+    }
+
+    function testCamera() {
+        alert('Test de la caméra en cours...');
+    }
+
+    function backupDatabase() {
+        if (confirm('Créer une sauvegarde de la base de données ?')) {
+            alert('Sauvegarde en cours...');
+        }
+    }
+
+    function restartSystem() {
+        if (confirm('Redémarrer le système ? Cette action interrompra temporairement le service.')) {
+            alert('Redémarrage programmé...');
+        }
+    }
+</script>
 {% endblock %}

@@ -19,12 +19,56 @@
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-book fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+    <!-- Statistiques -->
+    <div class="row mb-4">
+        {% for dept, stats in dept_stats.items() %}
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="text-primary">{{ stats.course_count }}</h5>
+                    <small class="text-muted">{{ dept }}</small>
+                </div>
+            </div>
         </div>
+        {% endfor %}
     </div>
+
+    <!-- Liste des cours -->
+    {% if courses %}
+        {% for course in courses %}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <h6 class="mb-1">{{ course.name }}</h6>
+                        <small class="text-muted">{{ course.code }} - {{ course.credits }} crédits</small>
+                    </div>
+                    <div class="col-md-2">
+                        <span class="badge bg-primary">{{ course.department }}</span>
+                    </div>
+                    <div class="col-md-2">
+                        <small class="text-muted">{{ course.enrolled_count }}/{{ course.max_students }} étudiants</small>
+                    </div>
+                    <div class="col-md-2">
+                        <small class="text-muted">{{ course.teacher_name }}</small>
+                    </div>
+                    <div class="col-md-2 text-end">
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-book fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucun cours trouvé</h5>
+                <p class="text-muted">Commencez par ajouter des cours au système</p>
+            </div>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}

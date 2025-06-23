@@ -1,0 +1,443 @@
+{% extends "base_role.html" %}
+
+{% block title %}Contrôle de Reconnaissance Faciale{% endblock %}
+
+{% block page_title %}Reconnaissance Faciale en Temps Réel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recognition-card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .status-indicator {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 10px;
+    }
+    
+    .status-running {
+        background: #28a745;
+        animation: pulse 2s infinite;
+    }
+    
+    .status-stopped {
+        background: #dc3545;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .control-panel {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    
+    .stats-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    
+    .attendance-item {
+        background: white;
+        border-left: 4px solid #28a745;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Panneau de contrôle -->
+    <div class="control-panel">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h3 class="mb-2">
+                    <i class="fas fa-camera me-2"></i>
+                    Système de Reconnaissance Faciale
+                </h3>
+                <p class="mb-0">
+                    <span class="status-indicator {{ 'status-running' if is_running else 'status-stopped' }}"></span>
+                    État: <strong>{{ 'ACTIF' if is_running else 'ARRÊTÉ' }}</strong>
+                    {% if current_session %}
+                    <span class="ms-3">
+                        <i class="fas fa-clock me-1"></i>
+                        Session: {{ current_session }}
+                    </span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-success btn-lg" id="startBtn" onclick="startRecognition()" {{ 'disabled' if is_running else '' }}>
+                        <i class="fas fa-play me-2"></i>
+                        Démarrer
+                    </button>
+                    <button type="button" class="btn btn-danger btn-lg" id="stopBtn" onclick="stopRecognition()" {{ 'disabled' if not is_running else '' }}>
+                        <i class="fas fa-stop me-2"></i>
+                        Arrêter
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Statistiques -->
+        <div class="col-md-4">
+            <div class="recognition-card">
+                <h5 class="mb-3">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Statistiques
+                </h5>
+                
+                <div class="stats-card">
+                    <div class="h3 text-primary" id="knownFacesCount">-</div>
+                    <small class="text-muted">Visages Enregistrés</small>
+                </div>
+                
+                <div class="stats-card">
+                    <div class="h3 text-success" id="todayAttendanceCount">{{ today_attendance|length }}</div>
+                    <small class="text-muted">Présences Aujourd'hui</small>
+                </div>
+                
+                <div class="stats-card">
+                    <div class="h3 text-info" id="sessionDuration">00:00:00</div>
+                    <small class="text-muted">Durée Session</small>
+                </div>
+            </div>
+
+            <!-- Contrôles avancés -->
+            <div class="recognition-card">
+                <h6 class="mb-3">Contrôles Avancés</h6>
+                
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary" onclick="testCamera()">
+                        <i class="fas fa-video me-2"></i>
+                        Tester Caméra
+                    </button>
+                    
+                    <button type="button" class="btn btn-outline-info" onclick="reloadEncodings()">
+                        <i class="fas fa-sync me-2"></i>
+                        Recharger Encodages
+                    </button>
+                    
+                    <a href="{{ url_for('facial.students_management') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-users me-2"></i>
+                        Gérer Étudiants
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Présences en temps réel -->
+        <div class="col-md-8">
+            <div class="recognition-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Présences d'Aujourd'hui
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="refreshAttendance()">
+                        <i class="fas fa-sync me-1"></i>
+                        Actualiser
+                    </button>
+                </div>
+
+                <div id="attendanceList" style="max-height: 400px; overflow-y: auto;">
+                    {% if today_attendance %}
+                        {% for attendance in today_attendance %}
+                        <div class="attendance-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ attendance.student_name }}</h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-clock me-1"></i>
+                                        {{ attendance.time }}
+                                        {% if attendance.confidence %}
+                                        <span class="ms-2">
+                                            <i class="fas fa-percentage me-1"></i>
+                                            {{ "%.1f"|format(attendance.confidence * 100) }}%
+                                        </span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <div>
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>
+                                        Présent
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                            <h6>Aucune présence détectée aujourd'hui</h6>
+                            <p class="text-muted">Les présences détectées par reconnaissance faciale apparaîtront ici</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zone de statut -->
+    <div class="alert alert-info" id="statusAlert" style="display: none;">
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" id="statusSpinner" style="display: none;"></div>
+            <span id="statusMessage">Système prêt</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let sessionStartTime = null;
+    let sessionTimer = null;
+
+    function showStatus(message, type = 'info', showSpinner = false) {
+        const alert = document.getElementById('statusAlert');
+        const spinner = document.getElementById('statusSpinner');
+        const messageEl = document.getElementById('statusMessage');
+        
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+        messageEl.textContent = message;
+        spinner.style.display = showSpinner ? 'inline-block' : 'none';
+    }
+
+    function startRecognition() {
+        showStatus('Démarrage de la reconnaissance faciale...', 'info', true);
+        
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        
+        startBtn.disabled = true;
+        
+        fetch('/facial/api/start_recognition', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                session_name: `Session ${new Date().toLocaleString('fr-FR')}`
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                
+                // Démarrer le timer de session
+                sessionStartTime = new Date();
+                startSessionTimer();
+                
+                // Démarrer l'actualisation automatique
+                startAutoRefresh();
+            } else {
+                showStatus(data.message, 'danger');
+                startBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur de connexion: ' + error.message, 'danger');
+            startBtn.disabled = false;
+        });
+    }
+
+    function stopRecognition() {
+        showStatus('Arrêt de la reconnaissance faciale...', 'warning', true);
+        
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        
+        stopBtn.disabled = true;
+        
+        fetch('/facial/api/stop_recognition', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                
+                // Arrêter le timer
+                stopSessionTimer();
+                
+                // Arrêter l'actualisation automatique
+                stopAutoRefresh();
+            } else {
+                showStatus(data.message, 'danger');
+                stopBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur de connexion: ' + error.message, 'danger');
+            stopBtn.disabled = false;
+        });
+    }
+
+    function testCamera() {
+        showStatus('Test de la caméra en cours...', 'info', true);
+        
+        fetch('/facial/api/camera_test')
+        .then(response => response.json())
+        .then(data => {
+            showStatus(data.message, data.success ? 'success' : 'danger');
+        })
+        .catch(error => {
+            showStatus('Erreur lors du test: ' + error.message, 'danger');
+        });
+    }
+
+    function reloadEncodings() {
+        showStatus('Rechargement des encodages...', 'info', true);
+        
+        fetch('/facial/api/reload_encodings', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                document.getElementById('knownFacesCount').textContent = data.count;
+            } else {
+                showStatus(data.message, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur: ' + error.message, 'danger');
+        });
+    }
+
+    function refreshAttendance() {
+        fetch('/facial/api/today_attendance')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateAttendanceList(data.attendance);
+                document.getElementById('todayAttendanceCount').textContent = data.attendance.length;
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de l\'actualisation:', error);
+        });
+    }
+
+    function updateAttendanceList(attendance) {
+        const list = document.getElementById('attendanceList');
+        
+        if (attendance.length === 0) {
+            list.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h6>Aucune présence détectée aujourd'hui</h6>
+                    <p class="text-muted">Les présences détectées par reconnaissance faciale apparaîtront ici</p>
+                </div>
+            `;
+            return;
+        }
+        
+        list.innerHTML = attendance.map(item => `
+            <div class="attendance-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">${item.student_name}</h6>
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            ${item.time}
+                            ${item.confidence ? `<span class="ms-2"><i class="fas fa-percentage me-1"></i>${(item.confidence * 100).toFixed(1)}%</span>` : ''}
+                        </small>
+                    </div>
+                    <div>
+                        <span class="badge bg-success">
+                            <i class="fas fa-check me-1"></i>
+                            Présent
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function startSessionTimer() {
+        sessionTimer = setInterval(() => {
+            if (sessionStartTime) {
+                const now = new Date();
+                const diff = now - sessionStartTime;
+                const hours = Math.floor(diff / 3600000);
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                
+                document.getElementById('sessionDuration').textContent = 
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    function stopSessionTimer() {
+        if (sessionTimer) {
+            clearInterval(sessionTimer);
+            sessionTimer = null;
+        }
+        sessionStartTime = null;
+        document.getElementById('sessionDuration').textContent = '00:00:00';
+    }
+
+    let autoRefreshInterval = null;
+
+    function startAutoRefresh() {
+        autoRefreshInterval = setInterval(refreshAttendance, 5000); // Actualiser toutes les 5 secondes
+    }
+
+    function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+        }
+    }
+
+    // Initialisation de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        // Charger les statistiques initiales
+        reloadEncodings();
+        
+        // Si une session est active, démarrer le timer
+        {% if is_running %}
+        sessionStartTime = new Date(); // Approximation
+        startSessionTimer();
+        startAutoRefresh();
+        {% endif %}
+        
+        showStatus('Système de reconnaissance faciale prêt', 'info');
+    });
+</script>
+{% endblock %}

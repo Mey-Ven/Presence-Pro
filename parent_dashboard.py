@@ -282,8 +282,9 @@ def get_parent_info(user_id):
     """Get parent information by user ID"""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     try:
+        # Try parents table first (new structure)
         cursor.execute('''
             SELECT p.id_parent, p.address, p.emergency_contact, p.occupation, p.relationship_to_student,
                    u.first_name, u.last_name, u.email, u.phone
@@ -291,7 +292,7 @@ def get_parent_info(user_id):
             JOIN users u ON p.user_id = u.id
             WHERE p.user_id = ?
         ''', (user_id,))
-        
+
         result = cursor.fetchone()
         if result:
             return {
@@ -306,8 +307,49 @@ def get_parent_info(user_id):
                 'phone': result[8],
                 'full_name': f"{result[5]} {result[6]}"
             }
+
+        # Fallback to parents table (compatibility structure)
+        cursor.execute('''
+            SELECT p.id_parent, u.first_name, u.last_name, u.email, u.phone
+            FROM parents p
+            JOIN users u ON p.id_parent = u.id
+            WHERE p.id_parent = ?
+        ''', (user_id,))
+
+        result = cursor.fetchone()
+        if result:
+            return {
+                'id_parent': result[0],
+                'address': 'Non renseigné',
+                'emergency_contact': result[4],
+                'occupation': 'Non renseigné',
+                'relationship_to_student': 'Parent',
+                'first_name': result[1],
+                'last_name': result[2],
+                'email': result[3],
+                'phone': result[4],
+                'full_name': f"{result[1]} {result[2]}"
+            }
+
+        # If not found in either table, create basic parent info
+        cursor.execute('SELECT first_name, last_name, email, phone FROM users WHERE id = ? AND role = "parent"', (user_id,))
+        result = cursor.fetchone()
+        if result:
+            return {
+                'id_parent': user_id,
+                'address': 'Non renseigné',
+                'emergency_contact': result[3],
+                'occupation': 'Non renseigné',
+                'relationship_to_student': 'Parent',
+                'first_name': result[0],
+                'last_name': result[1],
+                'email': result[2],
+                'phone': result[3],
+                'full_name': f"{result[0]} {result[1]}"
+            }
+
         return None
-        
+
     except Exception as e:
         print(f"Error getting parent info: {e}")
         return None

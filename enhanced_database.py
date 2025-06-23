@@ -255,6 +255,90 @@ def create_enhanced_tables():
             )
         ''')
         
+        # Create presences table for facial recognition attendance
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS presences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT NOT NULL,
+                course_id TEXT,
+                date DATE NOT NULL,
+                time TIME NOT NULL,
+                status TEXT DEFAULT 'Present',
+                detection_confidence REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES users(id),
+                FOREIGN KEY (course_id) REFERENCES courses(id_course)
+            )
+        ''')
+
+        # Create etudiants table for compatibility
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS etudiants (
+                id_student TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                classe TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_student) REFERENCES users(id)
+            )
+        ''')
+
+        # Create enseignants table for compatibility
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS enseignants (
+                id_teacher TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                department TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_teacher) REFERENCES users(id)
+            )
+        ''')
+
+        # Create parents table for compatibility
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS parents (
+                id_parent TEXT PRIMARY KEY,
+                nom TEXT NOT NULL,
+                prenom TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (id_parent) REFERENCES users(id)
+            )
+        ''')
+
+        # Create facial_encodings table for face recognition
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS facial_encodings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id TEXT NOT NULL,
+                encoding_data BLOB NOT NULL,
+                image_path TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (student_id) REFERENCES users(id)
+            )
+        ''')
+
+        # Create attendance_sessions table for tracking recognition sessions
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS attendance_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_name TEXT NOT NULL,
+                course_id TEXT,
+                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                end_time TIMESTAMP,
+                status TEXT DEFAULT 'active',
+                created_by TEXT,
+                FOREIGN KEY (course_id) REFERENCES courses(id_course),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        ''')
+
         # Create indexes for better performance
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
@@ -263,6 +347,8 @@ def create_enhanced_tables():
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id, is_read)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_audit_user_date ON audit_trail(user_id, created_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_presences_student_date ON presences(student_id, date)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_facial_encodings_student ON facial_encodings(student_id)')
         
         conn.commit()
         print("✅ Enhanced database tables created successfully!")
@@ -321,6 +407,22 @@ def insert_default_admin():
             INSERT INTO users (id, username, email, password_hash, role, first_name, last_name, phone)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (parent_id, 'parent1', 'parent1@school.com', parent_password_hash, 'parent', 'Pierre', 'Durand', '+1234567893'))
+
+        # Insert corresponding records in compatibility tables
+        cursor.execute('''
+            INSERT OR IGNORE INTO enseignants (id_teacher, nom, prenom, email, phone, department)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (teacher_id, 'Dupont', 'Jean', 'teacher1@school.com', '+1234567891', 'Mathématiques'))
+
+        cursor.execute('''
+            INSERT OR IGNORE INTO etudiants (id_student, nom, prenom, email, phone, classe)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (student_id, 'Martin', 'Marie', 'student1@school.com', '+1234567892', 'Terminale S'))
+
+        cursor.execute('''
+            INSERT OR IGNORE INTO parents (id_parent, nom, prenom, email, phone)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (parent_id, 'Durand', 'Pierre', 'parent1@school.com', '+1234567893'))
 
         conn.commit()
         print("✅ Default users created:")

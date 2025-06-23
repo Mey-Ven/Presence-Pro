@@ -19,11 +19,73 @@
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+    <!-- Statistiques générales -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-primary">{{ reports.summary.total_users }}</h4>
+                    <small class="text-muted">Utilisateurs Total</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-success">{{ reports.summary.total_courses }}</h4>
+                    <small class="text-muted">Cours Actifs</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-info">{{ reports.summary.today_attendance }}</h4>
+                    <small class="text-muted">Présences Aujourd'hui</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h4 class="text-warning">{{ reports.summary.weekly_messages }}</h4>
+                    <small class="text-muted">Messages Cette Semaine</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6>Utilisateurs par Rôle</h6>
+                </div>
+                <div class="card-body">
+                    {% for role, count in reports.charts.user_by_role.items() %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{{ role.title() }}</span>
+                        <span class="badge bg-primary">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6>Cours par Département</h6>
+                </div>
+                <div class="card-body">
+                    {% for dept, count in reports.charts.courses_by_dept.items() %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{{ dept }}</span>
+                        <span class="badge bg-success">{{ count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

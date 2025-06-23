@@ -1,0 +1,321 @@
+{% extends "base_role.html" %}
+
+{% block title %}Capture d'Images - {{ student.full_name }}{% endblock %}
+
+{% block page_title %}Capture d'Images Faciales{% endblock %}
+
+{% block extra_css %}
+<style>
+    .capture-card {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .student-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .capture-instructions {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 0 8px 8px 0;
+    }
+    
+    .step-card {
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        transition: all 0.3s;
+    }
+    
+    .step-card.active {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    }
+    
+    .step-card.completed {
+        border-color: #28a745;
+        background-color: #f8fff9;
+    }
+    
+    .step-number {
+        background: #007bff;
+        color: white;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 15px;
+    }
+    
+    .step-number.completed {
+        background: #28a745;
+    }
+    
+    .progress-bar-custom {
+        height: 8px;
+        border-radius: 4px;
+        background: #e9ecef;
+        overflow: hidden;
+        margin: 20px 0;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #007bff, #28a745);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Informations de l'étudiant -->
+    <div class="student-info">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h3 class="mb-2">
+                    <i class="fas fa-user-graduate me-2"></i>
+                    {{ student.full_name }}
+                </h3>
+                <p class="mb-0">
+                    <i class="fas fa-id-card me-2"></i>
+                    ID: {{ student.id }}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                <div class="display-6">
+                    <i class="fas fa-camera"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="capture-card">
+        <div class="capture-instructions">
+            <h5><i class="fas fa-info-circle me-2"></i>Instructions de Capture</h5>
+            <ul class="mb-0">
+                <li>Assurez-vous que l'étudiant est bien éclairé</li>
+                <li>Le visage doit être clairement visible et centré</li>
+                <li>Évitez les ombres et les reflets</li>
+                <li>Capturez plusieurs angles (face, légèrement de côté)</li>
+                <li>L'étudiant doit regarder directement la caméra</li>
+            </ul>
+        </div>
+
+        <!-- Étapes du processus -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="step-card" id="step1">
+                    <div class="d-flex align-items-center">
+                        <div class="step-number">1</div>
+                        <div>
+                            <h6 class="mb-1">Capture d'Images</h6>
+                            <small class="text-muted">Photographier le visage de l'étudiant</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="step-card" id="step2">
+                    <div class="d-flex align-items-center">
+                        <div class="step-number">2</div>
+                        <div>
+                            <h6 class="mb-1">Entraînement</h6>
+                            <small class="text-muted">Créer les encodages faciaux</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barre de progression -->
+        <div class="progress-bar-custom">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <!-- Contrôles -->
+        <div class="text-center">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-primary btn-lg" id="captureBtn" onclick="startCapture()">
+                    <i class="fas fa-camera me-2"></i>
+                    Commencer la Capture
+                </button>
+                <button type="button" class="btn btn-success btn-lg" id="trainBtn" onclick="startTraining()" disabled>
+                    <i class="fas fa-brain me-2"></i>
+                    Entraîner le Modèle
+                </button>
+            </div>
+        </div>
+
+        <!-- Zone de statut -->
+        <div class="mt-4">
+            <div class="alert alert-info" id="statusAlert" style="display: none;">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" id="statusSpinner" style="display: none;"></div>
+                    <span id="statusMessage">Prêt à commencer...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boutons de navigation -->
+    <div class="text-center">
+        <a href="{{ url_for('facial.students_management') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>
+            Retour à la Gestion des Étudiants
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentStep = 1;
+    let captureCompleted = false;
+    let trainingCompleted = false;
+
+    function updateProgress() {
+        const progress = (currentStep - 1) * 50;
+        document.getElementById('progressFill').style.width = progress + '%';
+        
+        // Mettre à jour les étapes
+        for (let i = 1; i <= 2; i++) {
+            const stepCard = document.getElementById(`step${i}`);
+            const stepNumber = stepCard.querySelector('.step-number');
+            
+            if (i < currentStep) {
+                stepCard.classList.add('completed');
+                stepCard.classList.remove('active');
+                stepNumber.classList.add('completed');
+                stepNumber.innerHTML = '<i class="fas fa-check"></i>';
+            } else if (i === currentStep) {
+                stepCard.classList.add('active');
+                stepCard.classList.remove('completed');
+            } else {
+                stepCard.classList.remove('active', 'completed');
+            }
+        }
+    }
+
+    function showStatus(message, type = 'info', showSpinner = false) {
+        const alert = document.getElementById('statusAlert');
+        const spinner = document.getElementById('statusSpinner');
+        const messageEl = document.getElementById('statusMessage');
+        
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+        messageEl.textContent = message;
+        spinner.style.display = showSpinner ? 'inline-block' : 'none';
+    }
+
+    function startCapture() {
+        showStatus('Démarrage de la capture d\'images...', 'info', true);
+        
+        const captureBtn = document.getElementById('captureBtn');
+        captureBtn.disabled = true;
+        captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Capture en cours...';
+        
+        // Appel API pour la capture
+        fetch(`/facial/api/capture/{{ student.id }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                num_images: 5
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                captureCompleted = true;
+                currentStep = 2;
+                updateProgress();
+                
+                // Activer le bouton d'entraînement
+                document.getElementById('trainBtn').disabled = false;
+                
+                captureBtn.innerHTML = '<i class="fas fa-check me-2"></i>Capture Terminée';
+                captureBtn.classList.remove('btn-primary');
+                captureBtn.classList.add('btn-success');
+            } else {
+                showStatus(data.message, 'danger');
+                captureBtn.disabled = false;
+                captureBtn.innerHTML = '<i class="fas fa-camera me-2"></i>Recommencer la Capture';
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur lors de la capture: ' + error.message, 'danger');
+            captureBtn.disabled = false;
+            captureBtn.innerHTML = '<i class="fas fa-camera me-2"></i>Recommencer la Capture';
+        });
+    }
+
+    function startTraining() {
+        showStatus('Entraînement du modèle en cours...', 'info', true);
+        
+        const trainBtn = document.getElementById('trainBtn');
+        trainBtn.disabled = true;
+        trainBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Entraînement...';
+        
+        // Appel API pour l'entraînement
+        fetch(`/facial/api/train/{{ student.id }}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(data.message, 'success');
+                trainingCompleted = true;
+                currentStep = 3;
+                updateProgress();
+                
+                trainBtn.innerHTML = '<i class="fas fa-check me-2"></i>Entraînement Terminé';
+                trainBtn.classList.remove('btn-success');
+                trainBtn.classList.add('btn-outline-success');
+                
+                // Afficher le message de succès final
+                setTimeout(() => {
+                    showStatus('✅ Processus terminé! L\'étudiant peut maintenant être reconnu par le système.', 'success');
+                }, 1000);
+            } else {
+                showStatus(data.message, 'danger');
+                trainBtn.disabled = false;
+                trainBtn.innerHTML = '<i class="fas fa-brain me-2"></i>Recommencer l\'Entraînement';
+            }
+        })
+        .catch(error => {
+            showStatus('Erreur lors de l\'entraînement: ' + error.message, 'danger');
+            trainBtn.disabled = false;
+            trainBtn.innerHTML = '<i class="fas fa-brain me-2"></i>Recommencer l\'Entraînement';
+        });
+    }
+
+    // Initialiser la page
+    document.addEventListener('DOMContentLoaded', function() {
+        updateProgress();
+        showStatus('Prêt à commencer la capture d\'images pour {{ student.full_name }}', 'info');
+    });
+</script>
+{% endblock %}

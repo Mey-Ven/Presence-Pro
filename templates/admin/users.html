@@ -4,27 +4,244 @@
 
 {% block page_title %}Gestion des Utilisateurs{% endblock %}
 
+{% block extra_css %}
+<style>
+    .user-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease;
+    }
+
+    .user-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+    }
+
+    .role-badge {
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+
+    .role-admin { background: #dc3545; color: white; }
+    .role-teacher { background: #007bff; color: white; }
+    .role-student { background: #28a745; color: white; }
+    .role-parent { background: #ffc107; color: black; }
+
+    .stats-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="fade-in">
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <h3>Gestion des Utilisateurs</h3>
-            <p class="text-muted">Gérez tous les utilisateurs du système</p>
+    <!-- Statistiques -->
+    <div class="stats-card">
+        <div class="row">
+            <div class="col-md-8">
+                <h4 class="mb-2">Gestion des Utilisateurs</h4>
+                <p class="mb-0">{{ users|length }} utilisateurs au total</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <button class="btn btn-light" onclick="showAddUserModal()">
+                    <i class="fas fa-plus me-2"></i>
+                    Nouvel Utilisateur
+                </button>
+            </div>
         </div>
-        <div class="col-md-4 text-end">
-            <button class="btn btn-primary">
-                <i class="fas fa-plus me-2"></i>
-                Nouvel Utilisateur
-            </button>
+
+        <!-- Statistiques par rôle -->
+        <div class="row mt-3">
+            {% for role, stats in role_stats.items() %}
+            <div class="col-md-3">
+                <div class="text-center">
+                    <div class="h5">{{ stats.active }}/{{ stats.total }}</div>
+                    <small>{{ role.title() }}s</small>
+                </div>
+            </div>
+            {% endfor %}
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body text-center py-5">
-            <i class="fas fa-users fa-3x text-muted mb-3"></i>
-            <h5 class="text-muted">{{ message }}</h5>
-            <p class="text-muted">Cette fonctionnalité sera bientôt disponible</p>
+    <!-- Filtres -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="searchInput" placeholder="Rechercher un utilisateur..." onkeyup="filterUsers()">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="roleFilter" onchange="filterUsers()">
+                        <option value="">Tous les rôles</option>
+                        <option value="admin">Administrateurs</option>
+                        <option value="teacher">Enseignants</option>
+                        <option value="student">Étudiants</option>
+                        <option value="parent">Parents</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="statusFilter" onchange="filterUsers()">
+                        <option value="">Tous les statuts</option>
+                        <option value="1">Actifs</option>
+                        <option value="0">Inactifs</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-secondary w-100" onclick="clearFilters()">
+                        <i class="fas fa-times me-1"></i>
+                        Effacer
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Liste des utilisateurs -->
+    {% if users %}
+        <div id="usersContainer">
+            {% for user in users %}
+            <div class="user-card user-item"
+                 data-name="{{ user.full_name.lower() }}"
+                 data-role="{{ user.role }}"
+                 data-status="{{ user.is_active }}">
+                <div class="row align-items-center">
+                    <div class="col-md-1">
+                        <div class="user-avatar">
+                            {{ user.first_name[0] }}{{ user.last_name[0] }}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <h6 class="mb-1">{{ user.full_name }}</h6>
+                        <small class="text-muted">{{ user.username }}</small>
+                    </div>
+                    <div class="col-md-2">
+                        <span class="role-badge role-{{ user.role }}">
+                            {{ user.role.title() }}
+                        </span>
+                    </div>
+                    <div class="col-md-3">
+                        <small class="text-muted">
+                            <i class="fas fa-envelope me-1"></i>
+                            {{ user.email }}
+                        </small>
+                    </div>
+                    <div class="col-md-2">
+                        {% if user.is_active %}
+                        <span class="badge bg-success">Actif</span>
+                        {% else %}
+                        <span class="badge bg-danger">Inactif</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-1 text-end">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#" onclick="editUser('{{ user.id }}')">
+                                    <i class="fas fa-edit me-2"></i>Modifier
+                                </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="resetPassword('{{ user.id }}')">
+                                    <i class="fas fa-key me-2"></i>Reset Mot de Passe
+                                </a></li>
+                                {% if user.role == 'student' %}
+                                <li><a class="dropdown-item" href="{{ url_for('facial.capture_student', student_id=user.id) }}">
+                                    <i class="fas fa-camera me-2"></i>Capturer Visage
+                                </a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="#" onclick="toggleUserStatus('{{ user.id }}', {{ user.is_active }})">
+                                    <i class="fas fa-{{ 'ban' if user.is_active else 'check' }} me-2"></i>
+                                    {{ 'Désactiver' if user.is_active else 'Activer' }}
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-users fa-4x text-muted mb-3"></i>
+            <h5 class="text-muted">Aucun utilisateur trouvé</h5>
+            <p class="text-muted">Commencez par ajouter des utilisateurs au système</p>
+        </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterUsers() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const roleFilter = document.getElementById('roleFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const users = document.querySelectorAll('.user-item');
+
+        users.forEach(user => {
+            const name = user.getAttribute('data-name');
+            const role = user.getAttribute('data-role');
+            const status = user.getAttribute('data-status');
+
+            const matchesSearch = name.includes(searchTerm);
+            const matchesRole = !roleFilter || role === roleFilter;
+            const matchesStatus = !statusFilter || status === statusFilter;
+
+            if (matchesSearch && matchesRole && matchesStatus) {
+                user.style.display = 'block';
+            } else {
+                user.style.display = 'none';
+            }
+        });
+    }
+
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('roleFilter').value = '';
+        document.getElementById('statusFilter').value = '';
+        filterUsers();
+    }
+
+    function showAddUserModal() {
+        alert('Fonctionnalité d\'ajout d\'utilisateur à implémenter');
+    }
+
+    function editUser(userId) {
+        alert(`Modification de l'utilisateur ${userId} à implémenter`);
+    }
+
+    function resetPassword(userId) {
+        if (confirm('Réinitialiser le mot de passe de cet utilisateur ?')) {
+            alert(`Réinitialisation du mot de passe pour ${userId} à implémenter`);
+        }
+    }
+
+    function toggleUserStatus(userId, isActive) {
+        const action = isActive ? 'désactiver' : 'activer';
+        if (confirm(`Voulez-vous ${action} cet utilisateur ?`)) {
+            alert(`${action} l'utilisateur ${userId} à implémenter`);
+        }
+    }
+</script>
 {% endblock %}

@@ -339,8 +339,9 @@ def get_teacher_info(user_id):
     """Get teacher information by user ID"""
     conn = get_connection()
     cursor = conn.cursor()
-    
+
     try:
+        # Try teachers table first
         cursor.execute('''
             SELECT t.id_teacher, t.employee_id, t.department, t.specialization, t.hire_date,
                    u.first_name, u.last_name, u.email, u.phone
@@ -348,7 +349,7 @@ def get_teacher_info(user_id):
             JOIN users u ON t.user_id = u.id
             WHERE t.user_id = ?
         ''', (user_id,))
-        
+
         result = cursor.fetchone()
         if result:
             return {
@@ -363,8 +364,49 @@ def get_teacher_info(user_id):
                 'phone': result[8],
                 'full_name': f"{result[5]} {result[6]}"
             }
+
+        # Fallback to enseignants table
+        cursor.execute('''
+            SELECT e.id_teacher, u.first_name, u.last_name, u.email, u.phone, e.department
+            FROM enseignants e
+            JOIN users u ON e.id_teacher = u.id
+            WHERE e.id_teacher = ?
+        ''', (user_id,))
+
+        result = cursor.fetchone()
+        if result:
+            return {
+                'id_teacher': result[0],
+                'employee_id': 'T001',
+                'department': result[5] or 'Général',
+                'specialization': 'Enseignement',
+                'hire_date': None,
+                'first_name': result[1],
+                'last_name': result[2],
+                'email': result[3],
+                'phone': result[4],
+                'full_name': f"{result[1]} {result[2]}"
+            }
+
+        # If not found in either table, create a basic teacher info
+        cursor.execute('SELECT first_name, last_name, email, phone FROM users WHERE id = ? AND role = "teacher"', (user_id,))
+        result = cursor.fetchone()
+        if result:
+            return {
+                'id_teacher': user_id,
+                'employee_id': 'T001',
+                'department': 'Général',
+                'specialization': 'Enseignement',
+                'hire_date': None,
+                'first_name': result[0],
+                'last_name': result[1],
+                'email': result[2],
+                'phone': result[3],
+                'full_name': f"{result[0]} {result[1]}"
+            }
+
         return None
-        
+
     except Exception as e:
         print(f"Error getting teacher info: {e}")
         return None
