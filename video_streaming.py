@@ -121,6 +121,10 @@ class VideoStreamer:
             # Détecter les visages
             face_locations = face_recognition.face_locations(rgb_small_frame)
             face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+
+            # Debug: afficher le nombre de visages détectés
+            if len(face_locations) > 0:
+                print(f"🔍 {len(face_locations)} visage(s) détecté(s) dans la frame")
             
             current_detections = []
             
@@ -139,22 +143,28 @@ class VideoStreamer:
                 
                 if len(self.facial_system.known_face_encodings) > 0:
                     matches = face_recognition.compare_faces(
-                        self.facial_system.known_face_encodings, 
+                        self.facial_system.known_face_encodings,
                         face_encoding,
-                        tolerance=0.6
+                        tolerance=0.5  # Réduire la tolérance pour plus de précision
                     )
                     face_distances = face_recognition.face_distance(
-                        self.facial_system.known_face_encodings, 
+                        self.facial_system.known_face_encodings,
                         face_encoding
                     )
                     
                     if len(face_distances) > 0:
                         best_match_index = np.argmin(face_distances)
-                        
-                        if matches[best_match_index] and face_distances[best_match_index] < 0.6:
+                        distance = face_distances[best_match_index]
+
+                        print(f"🎯 Distance minimale: {distance:.3f} (seuil: 0.5)")
+
+                        if matches[best_match_index] and distance < 0.5:
                             name = self.facial_system.known_face_names[best_match_index]
-                            confidence = 1 - face_distances[best_match_index]
+                            confidence = 1 - distance
                             color = (255, 0, 0)  # Bleu pour visage reconnu
+                            print(f"✅ RECONNAISSANCE: {name} avec confiance {confidence:.1%}")
+                        else:
+                            print(f"❌ Visage non reconnu (distance: {distance:.3f})")
                             
                             # Enregistrer la présence (marquée comme présent)
                             student_id = self.facial_system.known_face_ids[best_match_index]
