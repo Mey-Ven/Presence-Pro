@@ -35,22 +35,38 @@ def get_connection():
 def dashboard():
     """Student dashboard main page"""
     user = get_current_user()
-    
+
     # Get student information
     student_info = get_student_info(user['id'])
-    
+
+    # Si student_info est None, créer des informations par défaut
+    if not student_info:
+        student_info = {
+            'id_student': user['id'],
+            'etudiant_id': user['id'],
+            'class_name': 'Master IA',
+            'enrollment_date': None,
+            'first_name': user.get('first_name', 'Étudiant'),
+            'last_name': user.get('last_name', 'Utilisateur'),
+            'email': user.get('email', ''),
+            'phone': user.get('phone', ''),
+            'full_name': f"{user.get('first_name', 'Étudiant')} {user.get('last_name', 'Utilisateur')}"
+        }
+
+    student_id = student_info['id_student']
+
     # Get today's schedule
-    today_schedule = get_student_schedule(student_info['id_student'], datetime.now().strftime('%A'))
-    
+    today_schedule = get_student_schedule(student_id, datetime.now().strftime('%A'))
+
     # Get recent attendance
-    recent_attendance = get_student_attendance_history(student_info['id_student'], limit=5)
-    
+    recent_attendance = get_student_attendance_history(student_id, limit=5)
+
     # Get attendance statistics
-    attendance_stats = get_student_attendance_stats(student_info['id_student'])
-    
+    attendance_stats = get_student_attendance_stats(student_id)
+
     # Get pending justifications
-    pending_justifications = get_student_justifications(student_info['id_student'], status='pending')
-    
+    pending_justifications = get_student_justifications(student_id, status='pending')
+
     return render_template('student/dashboard.html',
                          student=student_info,
                          today_schedule=today_schedule,
@@ -65,10 +81,18 @@ def schedule():
     """Student class schedule page"""
     user = get_current_user()
     student_info = get_student_info(user['id'])
-    
+
+    # Si student_info est None, créer des informations par défaut
+    if not student_info:
+        student_info = {
+            'id_student': user['id'],
+            'full_name': f"{user.get('first_name', 'Étudiant')} {user.get('last_name', 'Utilisateur')}",
+            'class_name': 'Master IA'
+        }
+
     # Get full weekly schedule
     weekly_schedule = get_student_weekly_schedule(student_info['id_student'])
-    
+
     return render_template('student/schedule.html',
                          student=student_info,
                          weekly_schedule=weekly_schedule)
@@ -80,17 +104,25 @@ def attendance():
     """Student attendance history page"""
     user = get_current_user()
     student_info = get_student_info(user['id'])
-    
+
+    # Si student_info est None, créer des informations par défaut
+    if not student_info:
+        student_info = {
+            'id_student': user['id'],
+            'full_name': f"{user.get('first_name', 'Étudiant')} {user.get('last_name', 'Utilisateur')}",
+            'class_name': 'Master IA'
+        }
+
     # Get date range from query parameters
     start_date = request.args.get('start_date', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
     end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
-    
+
     # Get attendance history
     attendance_history = get_student_attendance_history(student_info['id_student'], start_date=start_date, end_date=end_date)
-    
+
     # Get attendance statistics
     attendance_stats = get_student_attendance_stats(student_info['id_student'])
-    
+
     return render_template('student/attendance.html',
                          student=student_info,
                          attendance_history=attendance_history,
@@ -105,10 +137,18 @@ def justifications():
     """Student absence justifications page"""
     user = get_current_user()
     student_info = get_student_info(user['id'])
-    
+
+    # Si student_info est None, créer des informations par défaut
+    if not student_info:
+        student_info = {
+            'id_student': user['id'],
+            'full_name': f"{user.get('first_name', 'Étudiant')} {user.get('last_name', 'Utilisateur')}",
+            'class_name': 'Master IA'
+        }
+
     # Get all justifications
     all_justifications = get_student_justifications(student_info['id_student'])
-    
+
     return render_template('student/justifications.html',
                          student=student_info,
                          justifications=all_justifications)
@@ -120,30 +160,33 @@ def submit_justification():
     """Submit absence justification"""
     user = get_current_user()
     student_info = get_student_info(user['id'])
-    
+
+    # Si student_info est None, utiliser l'ID utilisateur
+    student_id = student_info['id_student'] if student_info else user['id']
+
     try:
         data = request.get_json()
-        
+
         justification_id = str(uuid.uuid4())
-        
+
         conn = get_connection()
         cursor = conn.cursor()
-        
+
         cursor.execute('''
-            INSERT INTO absence_justifications 
-            (id_justification, student_id, absence_date, reason, description, submitted_by)
+            INSERT INTO justifications
+            (id, student_id, absence_date, reason, description, parent_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        ''', (justification_id, student_info['id_student'], data['absence_date'], 
+        ''', (justification_id, student_id, data['absence_date'],
               data['reason'], data.get('description', ''), user['id']))
-        
+
         conn.commit()
-        
+
         # Log audit trail
-        log_audit_trail(user['id'], 'CREATE', 'absence_justifications', justification_id, 
+        log_audit_trail(user['id'], 'CREATE', 'justifications', justification_id,
                        None, data)
-        
+
         return jsonify({'success': True, 'message': 'Justification submitted successfully'})
-        
+
     except Exception as e:
         print(f"Error submitting justification: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -157,7 +200,17 @@ def profile():
     """Student profile page"""
     user = get_current_user()
     student_info = get_student_info(user['id'])
-    
+
+    # Si student_info est None, créer des informations par défaut
+    if not student_info:
+        student_info = {
+            'id_student': user['id'],
+            'full_name': f"{user.get('first_name', 'Étudiant')} {user.get('last_name', 'Utilisateur')}",
+            'class_name': 'Master IA',
+            'email': user.get('email', ''),
+            'phone': user.get('phone', '')
+        }
+
     return render_template('student/profile.html',
                          student=student_info,
                          user=user)
@@ -169,10 +222,18 @@ def grades():
     """Student grades page"""
     user = get_current_user()
     student_info = get_student_info(user['id'])
-    
+
+    # Si student_info est None, créer des informations par défaut
+    if not student_info:
+        student_info = {
+            'id_student': user['id'],
+            'full_name': f"{user.get('first_name', 'Étudiant')} {user.get('last_name', 'Utilisateur')}",
+            'class_name': 'Master IA'
+        }
+
     # Get student grades
     student_grades = get_student_grades(student_info['id_student'])
-    
+
     return render_template('student/grades.html',
                          student=student_info,
                          grades=student_grades)
