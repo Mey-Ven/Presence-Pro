@@ -331,7 +331,7 @@ def inject_navigation():
         navigation = [
             {'name': 'Dashboard', 'url': url_for('parent.dashboard'), 'icon': 'fas fa-tachometer-alt'},
             {'name': 'Children', 'url': url_for('parent.dashboard'), 'icon': 'fas fa-child'},
-            {'name': 'Justifications', 'url': url_for('parent.justifications'), 'icon': 'fas fa-file-alt'},
+            {'name': 'Justifications', 'url': url_for('parent.justification'), 'icon': 'fas fa-file-alt'},
             {'name': 'Messages', 'url': url_for('parent.messages'), 'icon': 'fas fa-envelope'},
             {'name': 'Notifications', 'url': url_for('parent.notifications'), 'icon': 'fas fa-bell'}
         ]
