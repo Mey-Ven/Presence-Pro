@@ -290,6 +290,7 @@
     }
 
     function startStreaming() {
+        console.log('🎬 Démarrage du streaming...');
         showStatus('Démarrage du streaming vidéo...', 'info', true);
 
         const startStreamBtn = document.getElementById('startStreamBtn');
@@ -303,8 +304,12 @@
                 'Content-Type': 'application/json',
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('📡 Réponse API start_streaming:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('📊 Données reçues:', data);
             if (data.success) {
                 showStatus(data.message, 'success');
                 isStreaming = true;
@@ -312,15 +317,21 @@
                 stopStreamBtn.disabled = false;
                 document.getElementById('toggleDetectionBtn').disabled = false;
 
-                // Démarrer le flux vidéo
-                startVideoFeed();
+                // Démarrer le flux vidéo avec un petit délai
+                setTimeout(() => {
+                    console.log('🎥 Démarrage du flux vidéo...');
+                    startVideoFeed();
+                }, 1000);
+
                 updateStreamStatus('Caméra Active');
             } else {
+                console.error('❌ Échec démarrage:', data.message);
                 showStatus(data.message, 'danger');
                 startStreamBtn.disabled = false;
             }
         })
         .catch(error => {
+            console.error('❌ Erreur fetch:', error);
             showStatus('Erreur de connexion: ' + error.message, 'danger');
             startStreamBtn.disabled = false;
         });
@@ -401,7 +412,23 @@
 
     function startVideoFeed() {
         const videoFeed = document.getElementById('videoFeed');
-        videoFeed.src = '/facial/video_feed?' + new Date().getTime();
+        const timestamp = new Date().getTime();
+        const videoUrl = '/facial/video_feed?' + timestamp;
+
+        console.log('🎥 Démarrage flux vidéo:', videoUrl);
+
+        // Gérer les événements de chargement
+        videoFeed.onload = function() {
+            console.log('✅ Flux vidéo chargé avec succès');
+        };
+
+        videoFeed.onerror = function() {
+            console.error('❌ Erreur chargement flux vidéo');
+            showStatus('Erreur: Impossible de charger le flux vidéo', 'danger');
+        };
+
+        // Définir la source
+        videoFeed.src = videoUrl;
 
         // Actualiser le statut périodiquement
         streamingInterval = setInterval(updateStreamingStatus, 2000);

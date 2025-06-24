@@ -42,26 +42,40 @@ class VideoStreamer:
             return True, "Streaming déjà actif"
             
         try:
+            # Libérer toute caméra existante
+            if self.camera is not None:
+                self.camera.release()
+
             # Initialiser la caméra
             self.camera = cv2.VideoCapture(0)
             if not self.camera.isOpened():
                 return False, "Impossible d'accéder à la caméra"
-            
-            # Configurer la caméra
+
+            # Configurer la caméra pour de meilleures performances
             self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.camera.set(cv2.CAP_PROP_FPS, 30)
-            
+            self.camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Réduire le buffer
+
+            # Test de capture immédiat
+            ret, test_frame = self.camera.read()
+            if not ret:
+                self.camera.release()
+                return False, "Caméra accessible mais aucune image"
+
             self.is_streaming = True
-            
+
             # Démarrer le thread de capture
             self.capture_thread = threading.Thread(target=self._capture_loop)
             self.capture_thread.daemon = True
             self.capture_thread.start()
-            
+
+            print(f"✅ Streaming démarré - Résolution: {test_frame.shape}")
             return True, "Streaming démarré avec succès"
-            
+
         except Exception as e:
+            if self.camera:
+                self.camera.release()
             return False, f"Erreur lors du démarrage: {str(e)}"
     
     def stop_streaming(self):
