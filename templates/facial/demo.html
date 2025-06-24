@@ -274,14 +274,16 @@
 
     .face-detection-frame {
         position: absolute;
-        border: 3px solid #4facfe;
-        border-radius: 8px;
-        background: rgba(79, 172, 254, 0.1);
-        backdrop-filter: blur(2px);
+        border: 4px solid #4facfe;
+        border-radius: 12px;
+        background: rgba(79, 172, 254, 0.15);
+        backdrop-filter: blur(3px);
         display: none;
         z-index: 15;
         transition: all 0.3s ease;
-        box-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
+        box-shadow: 0 0 25px rgba(79, 172, 254, 0.7);
+        pointer-events: none;
+        visibility: hidden;
     }
 
     .face-detection-frame.active {
@@ -574,29 +576,45 @@
     // Fonction pour afficher le cadre de détection faciale
     function showFaceDetectionFrame() {
         const frame = document.getElementById('faceDetectionFrame');
-        const videoContainer = document.querySelector('.video-container');
+        const videoFeed = document.getElementById('demoVideoFeed');
 
-        if (!frame || !videoContainer) return;
+        if (!frame || !videoFeed) {
+            console.error('❌ Éléments cadre ou vidéo non trouvés');
+            return;
+        }
 
-        // Calculer la position du cadre (simuler la position du visage)
-        const containerRect = videoContainer.getBoundingClientRect();
+        // Obtenir les dimensions réelles de l'image vidéo
+        const videoRect = videoFeed.getBoundingClientRect();
         const frameWidth = 200;
         const frameHeight = 250;
 
         // Position centrée légèrement vers le haut (position typique d'un visage)
-        const left = (containerRect.width - frameWidth) / 2;
-        const top = (containerRect.height - frameHeight) / 2 - 50;
+        const left = (videoRect.width - frameWidth) / 2;
+        const top = (videoRect.height - frameHeight) / 2 - 30;
 
-        // Appliquer les styles
+        // Appliquer les styles avec position relative à l'image
         frame.style.left = left + 'px';
         frame.style.top = top + 'px';
         frame.style.width = frameWidth + 'px';
         frame.style.height = frameHeight + 'px';
+        frame.style.display = 'block';
 
-        // Activer le cadre
+        // Activer le cadre avec animation
         frame.classList.add('active');
 
-        console.log('🔵 Cadre de détection affiché');
+        console.log('🔵 Cadre de détection affiché:', {
+            left: left,
+            top: top,
+            width: frameWidth,
+            height: frameHeight,
+            videoRect: videoRect
+        });
+
+        // Forcer le repositionnement après un délai
+        setTimeout(() => {
+            frame.style.display = 'block';
+            frame.style.visibility = 'visible';
+        }, 100);
     }
 
     // Fonction pour masquer le cadre de détection
@@ -604,8 +622,36 @@
         const frame = document.getElementById('faceDetectionFrame');
         if (frame) {
             frame.classList.remove('active');
+            frame.style.display = 'none';
+            frame.style.visibility = 'hidden';
             console.log('🔵 Cadre de détection masqué');
         }
+    }
+
+    // Fonction de test du cadre (pour debug)
+    function testFaceFrame() {
+        console.log('🔍 Test du cadre de détection...');
+        const frame = document.getElementById('faceDetectionFrame');
+        const videoFeed = document.getElementById('demoVideoFeed');
+
+        if (!frame) {
+            console.error('❌ Cadre non trouvé');
+            return;
+        }
+
+        if (!videoFeed) {
+            console.error('❌ Flux vidéo non trouvé');
+            return;
+        }
+
+        console.log('✅ Éléments trouvés, affichage du cadre...');
+        showFaceDetectionFrame();
+
+        // Masquer après 5 secondes
+        setTimeout(() => {
+            hideFaceDetectionFrame();
+            console.log('🔵 Test terminé - Cadre masqué');
+        }, 5000);
     }
 
     // Fonction pour mettre à jour le statut du streaming
@@ -819,6 +865,10 @@
         <button class="demo-btn btn-success" id="simulateRecognitionBtn" onclick="simulateRecognition()" disabled>
             <i class="fas fa-user-check me-2"></i>
             Simuler Reconnaissance
+        </button>
+        <button class="demo-btn" id="testFrameBtn" onclick="testFaceFrame()">
+            <i class="fas fa-square me-2"></i>
+            Test Cadre
         </button>
     </div>
 

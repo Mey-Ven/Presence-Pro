@@ -1,0 +1,661 @@
+{% extends "base_role.html" %}
+
+{% block title %}Gestion des Détections - Reconnaissance Faciale{% endblock %}
+
+{% block page_title %}Gestion des Détections{% endblock %}
+
+{% block extra_css %}
+<style>
+    .management-card {
+        background: white;
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    
+    .add-detection-card {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    
+    .detection-item {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .detection-item:hover {
+        background: #e9ecef;
+        transform: translateX(5px);
+    }
+    
+    .detection-item.deleting {
+        opacity: 0.5;
+        transform: scale(0.95);
+    }
+    
+    .btn-delete {
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border: none;
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-delete:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        color: white;
+    }
+    
+    .btn-add {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        border: none;
+        color: white;
+        padding: 12px 25px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-add:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3);
+        color: white;
+    }
+    
+    .confidence-badge {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .status-badge {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    
+    .stats-row {
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-number {
+        font-size: 2rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .video-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 15px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+
+    .video-container {
+        position: relative;
+        background: #000;
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 20px 0;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .video-feed {
+        width: 100%;
+        height: auto;
+        display: block;
+        min-height: 300px;
+        object-fit: cover;
+    }
+
+    .video-controls {
+        text-align: center;
+        margin-top: 15px;
+    }
+
+    .video-btn {
+        background: rgba(255,255,255,0.2);
+        border: 2px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 25px;
+        margin: 0 5px;
+        transition: all 0.3s ease;
+    }
+
+    .video-btn:hover {
+        background: rgba(255,255,255,0.3);
+        border-color: rgba(255,255,255,0.5);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .video-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .video-status {
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin-top: 10px;
+        display: inline-block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Section vidéo streaming -->
+    <div class="video-section">
+        <h4 class="mb-3">
+            <i class="fas fa-video me-2"></i>
+            Streaming Vidéo en Temps Réel
+        </h4>
+
+        <div class="video-container">
+            <img id="managementVideoFeed"
+                 class="video-feed"
+                 src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2cpIi8+PHRleHQgeD0iNTAlIiB5PSI0NSUiIGZvbnQtZmFtaWx5PSJTZWdvZSBVSSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyMCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkNhbcOpcmEgUHLDqnRlPC90ZXh0Pjx0ZXh0IHg9IjUwJSIgeT0iNTUlIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC44KSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2xpcXVleiBzdXIgIkRlzIFtYXJyZXIgQ2FtZXJhIjwvdGV4dD48L3N2Zz4="
+                 alt="Flux vidéo de gestion">
+        </div>
+
+        <div class="video-controls">
+            <button class="btn video-btn" id="startCameraBtn" onclick="startCamera()">
+                <i class="fas fa-play me-2"></i>
+                Démarrer Caméra
+            </button>
+            <button class="btn video-btn" id="stopCameraBtn" onclick="stopCamera()" disabled>
+                <i class="fas fa-stop me-2"></i>
+                Arrêter Caméra
+            </button>
+            <button class="btn video-btn" id="enableDetectionBtn" onclick="enableDetection()" disabled>
+                <i class="fas fa-search me-2"></i>
+                Activer Détection
+            </button>
+        </div>
+
+        <div class="text-center">
+            <span class="video-status" id="videoStatus">Caméra Prête</span>
+        </div>
+    </div>
+
+    <!-- Formulaire d'ajout -->
+    <div class="add-detection-card">
+        <h4 class="mb-3">
+            <i class="fas fa-plus-circle me-2"></i>
+            Ajouter une Nouvelle Détection
+        </h4>
+        
+        <div class="stats-row">
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="stat-number">{{ detections|length }}</div>
+                    <div class="stat-label">Détections Totales</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-number">{{ students|length }}</div>
+                    <div class="stat-label">Étudiants Disponibles</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-number">
+                        {% if detections %}
+                            {{ detections|map(attribute='date')|unique|list|length }}
+                        {% else %}
+                            0
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">Jours Différents</div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-number">
+                        {% if detections %}
+                            {{ "%.1f"|format((detections|map(attribute='confidence')|select|sum / detections|map(attribute='confidence')|select|list|length) * 100) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">Confiance Moyenne</div>
+                </div>
+            </div>
+        </div>
+        
+        <form id="addDetectionForm">
+            <div class="row">
+                <div class="col-md-4">
+                    <label class="form-label">Étudiant</label>
+                    <select class="form-select" id="studentSelect" required>
+                        <option value="">Sélectionner un étudiant</option>
+                        {% for student in students %}
+                        <option value="{{ student.full_name }}">{{ student.full_name }}</option>
+                        {% endfor %}
+                        <option value="Elmehdi Rahaoui">Elmehdi Rahaoui (Demo)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Confiance (%)</label>
+                    <input type="number" class="form-control" id="confidenceInput" 
+                           min="0" max="100" step="0.1" value="94.7" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Statut</label>
+                    <select class="form-select" id="statusSelect" required>
+                        <option value="Present">Présent</option>
+                        <option value="Absent">Absent</option>
+                        <option value="Late">En retard</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-add w-100">
+                        <i class="fas fa-plus me-2"></i>
+                        Ajouter
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Liste des détections -->
+    <div class="management-card">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>
+                Détections Récentes ({{ detections|length }})
+            </h5>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="refreshDetections()">
+                    <i class="fas fa-sync me-1"></i>
+                    Actualiser
+                </button>
+                <button type="button" class="btn btn-outline-warning btn-sm" onclick="addQuickDetection()">
+                    <i class="fas fa-bolt me-1"></i>
+                    Ajout Rapide Elmehdi
+                </button>
+            </div>
+        </div>
+
+        {% if detections %}
+            <div id="detectionsList" style="max-height: 500px; overflow-y: auto;">
+                {% for detection in detections %}
+                <div class="detection-item" id="detection-{{ detection.id }}">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <h6 class="mb-1">{{ detection.student_name }}</h6>
+                            <small class="text-muted">ID: {{ detection.student_id }}</small>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="text-center">
+                                <div class="fw-bold">{{ detection.date }}</div>
+                                <small class="text-muted">{{ detection.time }}</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <span class="status-badge">
+                                <i class="fas fa-check me-1"></i>
+                                {{ detection.status }}
+                            </span>
+                        </div>
+                        <div class="col-md-3">
+                            {% if detection.confidence %}
+                            <span class="confidence-badge">
+                                {{ "%.1f"|format(detection.confidence * 100) }}% confiance
+                            </span>
+                            {% else %}
+                            <small class="text-muted">Confiance non disponible</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-2 text-end">
+                            <button type="button" class="btn btn-delete btn-sm" 
+                                    onclick="deleteDetection('{{ detection.id }}', '{{ detection.student_name }}')">
+                                <i class="fas fa-trash me-1"></i>
+                                Supprimer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">Aucune détection trouvée</h5>
+                <p class="text-muted">
+                    Commencez par ajouter une détection avec le formulaire ci-dessus.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Zone de statut -->
+    <div class="alert alert-info" id="statusAlert" style="display: none;">
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" id="statusSpinner" style="display: none;"></div>
+            <span id="statusMessage">Prêt</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Variables globales pour le streaming
+    let isStreaming = false;
+    let isDetectionEnabled = false;
+    let streamingInterval = null;
+
+    function showStatus(message, type = 'info', showSpinner = false) {
+        const alert = document.getElementById('statusAlert');
+        const spinner = document.getElementById('statusSpinner');
+        const messageEl = document.getElementById('statusMessage');
+        
+        alert.className = `alert alert-${type}`;
+        alert.style.display = 'block';
+        messageEl.textContent = message;
+        spinner.style.display = showSpinner ? 'inline-block' : 'none';
+        
+        // Auto-masquer après 5 secondes
+        setTimeout(() => {
+            alert.style.display = 'none';
+        }, 5000);
+    }
+
+    function addDetection(studentName, confidence, status = 'Present') {
+        showStatus('Ajout de la détection...', 'info', true);
+        
+        fetch('/facial/api/add_manual_detection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                student_name: studentName,
+                confidence: confidence / 100,
+                status: status
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(`Détection ajoutée: ${data.student_name}`, 'success');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showStatus(`Erreur: ${data.message}`, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus(`Erreur: ${error.message}`, 'danger');
+        });
+    }
+
+    function deleteDetection(detectionId, studentName) {
+        if (!confirm(`Êtes-vous sûr de vouloir supprimer la détection de ${studentName} ?`)) {
+            return;
+        }
+        
+        const detectionElement = document.getElementById(`detection-${detectionId}`);
+        detectionElement.classList.add('deleting');
+        
+        showStatus('Suppression en cours...', 'warning', true);
+        
+        fetch(`/facial/api/delete_detection/${detectionId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus('Détection supprimée avec succès', 'success');
+                detectionElement.remove();
+            } else {
+                showStatus(`Erreur: ${data.message}`, 'danger');
+                detectionElement.classList.remove('deleting');
+            }
+        })
+        .catch(error => {
+            showStatus(`Erreur: ${error.message}`, 'danger');
+            detectionElement.classList.remove('deleting');
+        });
+    }
+
+    function addQuickDetection() {
+        addDetection('Elmehdi Rahaoui', 94.7, 'Present');
+    }
+
+    function refreshDetections() {
+        showStatus('Actualisation...', 'info', true);
+        setTimeout(() => location.reload(), 1000);
+    }
+
+    // Gestion du formulaire
+    document.getElementById('addDetectionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const studentName = document.getElementById('studentSelect').value;
+        const confidence = parseFloat(document.getElementById('confidenceInput').value);
+        const status = document.getElementById('statusSelect').value;
+        
+        if (!studentName) {
+            showStatus('Veuillez sélectionner un étudiant', 'warning');
+            return;
+        }
+        
+        addDetection(studentName, confidence, status);
+    });
+
+    // Fonctions de contrôle de la caméra
+    function startCamera() {
+        showStatus('Démarrage de la caméra...', 'info', true);
+
+        const startBtn = document.getElementById('startCameraBtn');
+        const stopBtn = document.getElementById('stopCameraBtn');
+        const detectBtn = document.getElementById('enableDetectionBtn');
+
+        startBtn.disabled = true;
+
+        fetch('/facial/api/start_streaming', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                isStreaming = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                detectBtn.disabled = false;
+
+                // Démarrer le flux vidéo
+                startVideoFeed();
+                updateVideoStatus('Caméra Active');
+                showStatus('Caméra démarrée avec succès', 'success');
+            } else {
+                showStatus(`Erreur: ${data.message}`, 'danger');
+                startBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            showStatus(`Erreur: ${error.message}`, 'danger');
+            startBtn.disabled = false;
+        });
+    }
+
+    function stopCamera() {
+        showStatus('Arrêt de la caméra...', 'warning', true);
+
+        const startBtn = document.getElementById('startCameraBtn');
+        const stopBtn = document.getElementById('stopCameraBtn');
+        const detectBtn = document.getElementById('enableDetectionBtn');
+
+        stopBtn.disabled = true;
+
+        fetch('/facial/api/stop_streaming', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            isStreaming = false;
+            isDetectionEnabled = false;
+
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            detectBtn.disabled = true;
+
+            // Arrêter le flux vidéo
+            stopVideoFeed();
+            updateVideoStatus('Caméra Arrêtée');
+            showStatus('Caméra arrêtée', 'info');
+        })
+        .catch(error => {
+            showStatus(`Erreur: ${error.message}`, 'danger');
+            stopBtn.disabled = false;
+        });
+    }
+
+    function enableDetection() {
+        if (!isStreaming) {
+            showStatus('Démarrez d\'abord la caméra', 'warning');
+            return;
+        }
+
+        showStatus('Activation de la détection...', 'info', true);
+
+        fetch('/facial/api/enable_detection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                isDetectionEnabled = true;
+                updateVideoStatus('Détection Active');
+                showStatus('Détection faciale activée', 'success');
+
+                // Démarrer les mises à jour de statut
+                if (streamingInterval) clearInterval(streamingInterval);
+                streamingInterval = setInterval(updateStreamingStatus, 2000);
+            } else {
+                showStatus(`Erreur: ${data.message}`, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus(`Erreur: ${error.message}`, 'danger');
+        });
+    }
+
+    function startVideoFeed() {
+        const videoFeed = document.getElementById('managementVideoFeed');
+        const timestamp = new Date().getTime();
+        const videoUrl = '/facial/video_feed?' + timestamp;
+
+        console.log('🎥 Démarrage flux vidéo gestion:', videoUrl);
+
+        videoFeed.onload = function() {
+            console.log('✅ Flux vidéo gestion chargé');
+        };
+
+        videoFeed.onerror = function() {
+            console.error('❌ Erreur flux vidéo gestion');
+            updateVideoStatus('Erreur Flux Vidéo');
+        };
+
+        videoFeed.src = videoUrl;
+    }
+
+    function stopVideoFeed() {
+        const videoFeed = document.getElementById('managementVideoFeed');
+        videoFeed.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2cpIi8+PHRleHQgeD0iNTAlIiB5PSI0NSUiIGZvbnQtZmFtaWx5PSJTZWdvZSBVSSwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIyMCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkNhbcOpcmEgQXJyZXRlzIFlPC90ZXh0Pjx0ZXh0IHg9IjUwJSIgeT0iNTUlIiBmb250LWZhbWlseT0iU2Vnb2UgVUksIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC44KSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Q2FtZXJhIGFycmV0ZWU8L3RleHQ+PC9zdmc+";
+
+        if (streamingInterval) {
+            clearInterval(streamingInterval);
+            streamingInterval = null;
+        }
+    }
+
+    function updateVideoStatus(status) {
+        document.getElementById('videoStatus').textContent = status;
+    }
+
+    function updateStreamingStatus() {
+        if (!isStreaming || !isDetectionEnabled) return;
+
+        fetch('/facial/api/streaming_status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const status = data.status;
+
+                if (status.detections && status.detections.length > 0) {
+                    const detectedNames = status.detections
+                        .filter(d => d.name !== 'Inconnu')
+                        .map(d => d.name);
+
+                    if (detectedNames.length > 0) {
+                        updateVideoStatus(`Détecté: ${detectedNames.join(', ')}`);
+
+                        // Suggestion d'ajout automatique
+                        if (detectedNames.includes('Elmehdi Rahaoui')) {
+                            showStatus('Elmehdi Rahaoui détecté! Cliquez "Ajout Rapide" pour enregistrer.', 'success');
+                        }
+                    }
+                } else {
+                    updateVideoStatus('Détection Active - Aucun visage');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur mise à jour statut:', error);
+        });
+    }
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        showStatus('{{ detections|length }} détections chargées', 'info');
+        updateVideoStatus('Caméra Prête');
+    });
+
+    // Nettoyage lors de la fermeture
+    window.addEventListener('beforeunload', function() {
+        if (isStreaming) {
+            stopCamera();
+        }
+    });
+</script>
+{% endblock %}

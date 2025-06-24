@@ -460,6 +460,84 @@ def api_add_manual_detection():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@facial_bp.route('/manage_detections')
+@login_required
+@role_required('admin', 'teacher')
+def manage_detections():
+    """Page de gestion des détections (ajout/suppression)"""
+    from enhanced_database import get_connection
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Obtenir les détections récentes
+    cursor.execute('''
+        SELECT p.id, p.student_id, p.date, p.time, p.status, p.detection_confidence,
+               u.first_name, u.last_name
+        FROM presences p
+        JOIN users u ON p.student_id = u.id
+        ORDER BY p.date DESC, p.time DESC
+        LIMIT 50
+    ''')
+
+    detections = []
+    for row in cursor.fetchall():
+        detections.append({
+            'id': row[0],
+            'student_id': row[1],
+            'date': row[2],
+            'time': row[3],
+            'status': row[4],
+            'confidence': row[5],
+            'student_name': f"{row[6]} {row[7]}"
+        })
+
+    # Obtenir la liste des étudiants
+    cursor.execute('''
+        SELECT id, first_name, last_name
+        FROM users
+        WHERE role = 'student' AND is_active = 1
+        ORDER BY last_name, first_name
+    ''')
+
+    students = []
+    for row in cursor.fetchall():
+        students.append({
+            'id': row[0],
+            'full_name': f"{row[1]} {row[2]}"
+        })
+
+    conn.close()
+
+    return render_template('facial/manage_detections.html',
+                         detections=detections,
+                         students=students)
+
+@facial_bp.route('/api/delete_detection/<detection_id>', methods=['DELETE'])
+@login_required
+@role_required('admin', 'teacher')
+def api_delete_detection(detection_id):
+    """API pour supprimer une détection"""
+    try:
+        from enhanced_database import get_connection
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Supprimer la détection
+        cursor.execute('DELETE FROM presences WHERE id = ?', (detection_id,))
+
+        if cursor.rowcount > 0:
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True, 'message': 'Détection supprimée avec succès'})
+        else:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Détection non trouvée'}), 404
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @facial_bp.route('/api/camera_test')
 @login_required
 @role_required('admin', 'teacher')
