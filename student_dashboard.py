@@ -149,9 +149,18 @@ def justifications():
     # Get all justifications
     all_justifications = get_student_justifications(student_info['id_student'])
 
+    # Get justification statistics
+    justification_stats = {
+        'total': len(all_justifications),
+        'pending': len([j for j in all_justifications if j['status'] == 'pending']),
+        'approved': len([j for j in all_justifications if j['status'] == 'approved']),
+        'rejected': len([j for j in all_justifications if j['status'] == 'rejected'])
+    }
+
     return render_template('student/justifications.html',
                          student=student_info,
-                         justifications=all_justifications)
+                         justifications=all_justifications,
+                         justification_stats=justification_stats)
 
 @student_bp.route('/submit_justification', methods=['POST'])
 @login_required

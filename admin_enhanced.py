@@ -191,7 +191,7 @@ def system_reports():
     cursor.execute('SELECT COUNT(*) FROM presences WHERE date = ?', (datetime.now().date(),))
     today_attendance = cursor.fetchone()[0]
 
-    cursor.execute('SELECT COUNT(*) FROM messages WHERE created_at >= ?', (datetime.now() - timedelta(days=7),))
+    cursor.execute('SELECT COUNT(*) FROM messages WHERE sent_at >= ?', (datetime.now() - timedelta(days=7),))
     weekly_messages = cursor.fetchone()[0]
 
     # Données pour les graphiques
@@ -241,13 +241,13 @@ def communication_hub():
 
     # Obtenir les messages récents
     cursor.execute('''
-        SELECT m.id, m.subject, m.content, m.sender_id, m.recipient_id, m.is_read, m.created_at,
+        SELECT m.id_message, m.subject, m.content, m.sender_id, m.recipient_id, m.is_read, m.sent_at,
                u1.first_name as sender_first, u1.last_name as sender_last,
                u2.first_name as recipient_first, u2.last_name as recipient_last
         FROM messages m
         JOIN users u1 ON m.sender_id = u1.id
         LEFT JOIN users u2 ON m.recipient_id = u2.id
-        ORDER BY m.created_at DESC
+        ORDER BY m.sent_at DESC
         LIMIT 50
     ''')
 
@@ -260,19 +260,19 @@ def communication_hub():
             'sender_id': row[3],
             'recipient_id': row[4],
             'is_read': row[5],
-            'created_at': row[6],
+            'sent_at': row[6],
             'sender_name': f"{row[7]} {row[8]}",
             'recipient_name': f"{row[9]} {row[10]}" if row[9] else "Diffusion générale"
         })
 
     # Statistiques de communication
-    cursor.execute('SELECT COUNT(*) FROM messages WHERE created_at >= ?', (datetime.now() - timedelta(days=7),))
+    cursor.execute('SELECT COUNT(*) FROM messages WHERE sent_at >= ?', (datetime.now() - timedelta(days=7),))
     weekly_messages = cursor.fetchone()[0]
 
     cursor.execute('SELECT COUNT(*) FROM messages WHERE is_read = 0')
     unread_messages = cursor.fetchone()[0]
 
-    cursor.execute('SELECT COUNT(DISTINCT sender_id) FROM messages WHERE created_at >= ?', (datetime.now() - timedelta(days=30),))
+    cursor.execute('SELECT COUNT(DISTINCT sender_id) FROM messages WHERE sent_at >= ?', (datetime.now() - timedelta(days=30),))
     active_senders = cursor.fetchone()[0]
 
     conn.close()
@@ -302,7 +302,7 @@ def audit_trail():
 
     # Obtenir les logs d'audit récents
     cursor.execute('''
-        SELECT a.id, a.user_id, a.action, a.table_name, a.record_id, a.old_values, a.new_values, a.created_at,
+        SELECT a.id_audit, a.user_id, a.action, a.table_name, a.record_id, a.old_values, a.new_values, a.created_at,
                u.first_name, u.last_name, u.role
         FROM audit_trail a
         LEFT JOIN users u ON a.user_id = u.id
