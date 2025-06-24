@@ -271,15 +271,18 @@ def api_delete_encoding(student_id):
 def attendance_history():
     """Page d'historique des présences par reconnaissance faciale"""
     from enhanced_database import get_connection
-    
+
     # Obtenir les paramètres de filtre
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
     student_id = request.args.get('student_id', '')
-    
+
     conn = get_connection()
     cursor = conn.cursor()
-    
+
+    # Ajouter des détections de démonstration si elles n'existent pas
+    add_demo_detections(cursor)
+
     # Construire la requête avec filtres
     query = '''
         SELECT p.*, u.first_name, u.last_name
@@ -288,23 +291,23 @@ def attendance_history():
         WHERE 1=1
     '''
     params = []
-    
+
     if start_date:
         query += ' AND p.date >= ?'
         params.append(start_date)
-    
+
     if end_date:
         query += ' AND p.date <= ?'
         params.append(end_date)
-    
+
     if student_id:
         query += ' AND p.student_id = ?'
         params.append(student_id)
-    
+
     query += ' ORDER BY p.date DESC, p.time DESC LIMIT 100'
-    
+
     cursor.execute(query, params)
-    
+
     attendance_records = []
     for row in cursor.fetchall():
         attendance_records.append({
@@ -318,7 +321,7 @@ def attendance_history():
             'created_at': row[7],
             'student_name': f"{row[8]} {row[9]}"
         })
-    
+
     # Obtenir la liste des étudiants pour le filtre
     cursor.execute('''
         SELECT id, first_name, last_name
@@ -326,22 +329,136 @@ def attendance_history():
         WHERE role = 'student' AND is_active = 1
         ORDER BY last_name, first_name
     ''')
-    
+
     students = []
     for row in cursor.fetchall():
         students.append({
             'id': row[0],
             'full_name': f"{row[1]} {row[2]}"
         })
-    
+
     conn.close()
-    
+
     return render_template('facial/attendance_history.html',
                          attendance_records=attendance_records,
                          students=students,
                          start_date=start_date,
                          end_date=end_date,
                          selected_student_id=student_id)
+
+def add_demo_detections(cursor):
+    """Ajouter des détections de démonstration pour Elmehdi Rahaoui"""
+    try:
+        # Vérifier si Elmehdi Rahaoui existe
+        cursor.execute('''
+            SELECT id FROM users
+            WHERE first_name = 'Elmehdi' AND last_name = 'Rahaoui'
+            AND role = 'student'
+        ''')
+
+        user_result = cursor.fetchone()
+        if not user_result:
+            # Créer l'utilisateur Elmehdi Rahaoui s'il n'existe pas
+            import uuid
+            user_id = str(uuid.uuid4())
+            cursor.execute('''
+                INSERT INTO users (id, username, email, password_hash, role, first_name, last_name, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, 'elmehdi.rahaoui', 'elmehdi.rahaoui@example.com',
+                  'hashed_password', 'student', 'Elmehdi', 'Rahaoui', 1))
+        else:
+            user_id = user_result[0]
+
+        # Vérifier si des détections existent déjà
+        cursor.execute('''
+            SELECT COUNT(*) FROM presences
+            WHERE student_id = ? AND date >= date('now', '-7 days')
+        ''', (user_id,))
+
+        existing_count = cursor.fetchone()[0]
+
+        if existing_count < 5:  # Ajouter des détections si moins de 5 existent
+            from datetime import datetime, timedelta
+            import random
+
+            # Ajouter 5 détections sur les 3 derniers jours
+            for i in range(5):
+                detection_date = datetime.now() - timedelta(days=random.randint(0, 2))
+                detection_time = f"{random.randint(8, 17):02d}:{random.randint(0, 59):02d}:{random.randint(0, 59):02d}"
+                confidence = round(random.uniform(0.85, 0.98), 3)
+
+                cursor.execute('''
+                    INSERT OR IGNORE INTO presences (student_id, date, time, status, detection_confidence)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (user_id, detection_date.strftime('%Y-%m-%d'), detection_time, 'Present', confidence))
+
+        cursor.connection.commit()
+
+    except Exception as e:
+        print(f"Erreur lors de l'ajout des détections de démonstration: {e}")
+
+@facial_bp.route('/api/add_manual_detection', methods=['POST'])
+@login_required
+@role_required('admin', 'teacher')
+def api_add_manual_detection():
+    """API pour ajouter une détection manuelle"""
+    try:
+        data = request.get_json()
+        student_name = data.get('student_name', 'Elmehdi Rahaoui')
+        confidence = data.get('confidence', 0.947)
+
+        from enhanced_database import get_connection
+        from datetime import datetime
+        import uuid
+
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        # Trouver ou créer l'étudiant
+        cursor.execute('''
+            SELECT id FROM users
+            WHERE (first_name || ' ' || last_name) = ? AND role = 'student'
+        ''', (student_name,))
+
+        user_result = cursor.fetchone()
+        if not user_result:
+            # Créer l'utilisateur s'il n'existe pas
+            names = student_name.split(' ', 1)
+            first_name = names[0]
+            last_name = names[1] if len(names) > 1 else ''
+
+            user_id = str(uuid.uuid4())
+            cursor.execute('''
+                INSERT INTO users (id, username, email, password_hash, role, first_name, last_name, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, f"{first_name.lower()}.{last_name.lower()}",
+                  f"{first_name.lower()}.{last_name.lower()}@example.com",
+                  'hashed_password', 'student', first_name, last_name, 1))
+        else:
+            user_id = user_result[0]
+
+        # Ajouter la détection
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        current_time = datetime.now().strftime('%H:%M:%S')
+
+        cursor.execute('''
+            INSERT INTO presences (student_id, date, time, status, detection_confidence)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (user_id, current_date, current_time, 'Present', confidence))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f'Détection ajoutée pour {student_name}',
+            'student_name': student_name,
+            'confidence': confidence,
+            'time': current_time
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @facial_bp.route('/api/camera_test')
 @login_required

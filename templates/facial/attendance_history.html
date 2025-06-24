@@ -140,6 +140,10 @@
                 Historique des Détections
             </h5>
             <div class="btn-group">
+                <button type="button" class="btn btn-outline-warning btn-sm" onclick="addManualDetection()">
+                    <i class="fas fa-plus me-1"></i>
+                    Ajouter Détection
+                </button>
                 <button type="button" class="btn btn-outline-primary btn-sm" onclick="refreshData()">
                     <i class="fas fa-sync me-1"></i>
                     Actualiser
@@ -260,23 +264,55 @@
         }, 1000);
     }
 
+    function addManualDetection() {
+        showStatus('Ajout d\'une détection manuelle...', 'info', true);
+
+        // Ajouter une détection pour Elmehdi Rahaoui
+        fetch('/facial/api/add_manual_detection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                student_name: 'Elmehdi Rahaoui',
+                confidence: 0.947
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showStatus(`Détection ajoutée: ${data.student_name} (${(data.confidence * 100).toFixed(1)}%)`, 'success');
+
+                // Actualiser la page après 2 secondes
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                showStatus(`Erreur: ${data.message}`, 'danger');
+            }
+        })
+        .catch(error => {
+            showStatus(`Erreur de connexion: ${error.message}`, 'danger');
+        });
+    }
+
     function exportData() {
         showStatus('Préparation de l\'export...', 'info', true);
-        
+
         // Créer un CSV simple des données affichées
         const records = {{ attendance_records|tojson }};
-        
+
         if (records.length === 0) {
             showStatus('Aucune donnée à exporter', 'warning');
             return;
         }
-        
+
         let csv = 'Date,Heure,Étudiant,Statut,Confiance,Horodatage\n';
-        
+
         records.forEach(record => {
             csv += `"${record.date}","${record.time}","${record.student_name}","${record.status}","${record.confidence ? (record.confidence * 100).toFixed(1) + '%' : 'N/A'}","${record.created_at || 'N/A'}"\n`;
         });
-        
+
         // Télécharger le fichier
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -287,7 +323,7 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         showStatus('Export terminé avec succès', 'success');
     }
 

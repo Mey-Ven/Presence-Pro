@@ -271,6 +271,69 @@
         display: none;
         z-index: 20;
     }
+
+    .face-detection-frame {
+        position: absolute;
+        border: 3px solid #4facfe;
+        border-radius: 8px;
+        background: rgba(79, 172, 254, 0.1);
+        backdrop-filter: blur(2px);
+        display: none;
+        z-index: 15;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
+    }
+
+    .face-detection-frame.active {
+        display: block;
+        animation: faceDetectionPulse 2s infinite;
+    }
+
+    .face-name-label {
+        position: absolute;
+        bottom: -35px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(79, 172, 254, 0.95);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-align: center;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        white-space: nowrap;
+        min-width: 120px;
+    }
+
+    .confidence-indicator {
+        position: absolute;
+        top: -30px;
+        right: 0;
+        background: rgba(0, 255, 136, 0.9);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        backdrop-filter: blur(10px);
+    }
+
+    @keyframes faceDetectionPulse {
+        0% {
+            border-color: #4facfe;
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
+        }
+        50% {
+            border-color: #00f2fe;
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.8);
+        }
+        100% {
+            border-color: #4facfe;
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.5);
+        }
+    }
     
     .recognition-badge.show {
         display: block;
@@ -482,9 +545,19 @@
         console.log('🎯 Simulation de reconnaissance...');
         recognitionSimulated = true;
 
-        // Afficher le badge de reconnaissance
-        const badge = document.getElementById('recognitionBadge');
-        badge.classList.add('show');
+        // Afficher le cadre de détection faciale
+        showFaceDetectionFrame();
+
+        // Afficher le badge de reconnaissance après 1 seconde
+        setTimeout(() => {
+            const badge = document.getElementById('recognitionBadge');
+            badge.classList.add('show');
+
+            // Masquer le badge après 3 secondes
+            setTimeout(() => {
+                badge.classList.remove('show');
+            }, 3000);
+        }, 1000);
 
         // Mettre à jour les statuts
         updateRecognitionStatus('Elmehdi Rahaoui Reconnu', 'status-recognized');
@@ -495,12 +568,44 @@
         const todayPresent = document.getElementById('todayPresent');
         todayPresent.textContent = parseInt(todayPresent.textContent) + 1;
 
-        // Masquer le badge après 3 secondes
-        setTimeout(() => {
-            badge.classList.remove('show');
-        }, 3000);
-
         console.log('✅ Reconnaissance simulée: Elmehdi Rahaoui');
+    }
+
+    // Fonction pour afficher le cadre de détection faciale
+    function showFaceDetectionFrame() {
+        const frame = document.getElementById('faceDetectionFrame');
+        const videoContainer = document.querySelector('.video-container');
+
+        if (!frame || !videoContainer) return;
+
+        // Calculer la position du cadre (simuler la position du visage)
+        const containerRect = videoContainer.getBoundingClientRect();
+        const frameWidth = 200;
+        const frameHeight = 250;
+
+        // Position centrée légèrement vers le haut (position typique d'un visage)
+        const left = (containerRect.width - frameWidth) / 2;
+        const top = (containerRect.height - frameHeight) / 2 - 50;
+
+        // Appliquer les styles
+        frame.style.left = left + 'px';
+        frame.style.top = top + 'px';
+        frame.style.width = frameWidth + 'px';
+        frame.style.height = frameHeight + 'px';
+
+        // Activer le cadre
+        frame.classList.add('active');
+
+        console.log('🔵 Cadre de détection affiché');
+    }
+
+    // Fonction pour masquer le cadre de détection
+    function hideFaceDetectionFrame() {
+        const frame = document.getElementById('faceDetectionFrame');
+        if (frame) {
+            frame.classList.remove('active');
+            console.log('🔵 Cadre de détection masqué');
+        }
     }
 
     // Fonction pour mettre à jour le statut du streaming
@@ -562,6 +667,12 @@
         updateRecognitionStatus('En attente', '');
         document.getElementById('confidenceLevel').textContent = '--';
         document.getElementById('facesCount').textContent = '0';
+
+        // Masquer le cadre de détection
+        hideFaceDetectionFrame();
+
+        // Reset du flag de reconnaissance
+        recognitionSimulated = false;
     }
 
     // Fonction pour mettre à jour l'heure
@@ -671,6 +782,17 @@
                     <div class="status-indicator">
                         <i class="fas fa-clock"></i>
                         <span id="currentTime">{{ demo_info.current_time }}</span>
+                    </div>
+                </div>
+
+                <!-- Cadre de détection faciale -->
+                <div class="face-detection-frame" id="faceDetectionFrame">
+                    <div class="face-name-label">
+                        <i class="fas fa-user me-2"></i>
+                        Elmehdi Rahaoui
+                    </div>
+                    <div class="confidence-indicator" id="confidenceIndicator">
+                        94.7%
                     </div>
                 </div>
 
