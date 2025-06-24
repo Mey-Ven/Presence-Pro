@@ -90,18 +90,38 @@ def api_train_student(student_id):
 def recognition_control():
     """Page de contrôle de la reconnaissance faciale"""
     user = get_current_user()
-    
+
     # Obtenir l'état actuel du système
     is_running = facial_recognition_system.is_running
     current_session = facial_recognition_system.current_session_id
-    
+
     # Obtenir les présences d'aujourd'hui
     today_attendance = facial_recognition_system.get_today_attendance()
-    
-    return render_template('facial/recognition.html', 
+
+    return render_template('facial/recognition.html',
                          is_running=is_running,
                          current_session=current_session,
                          today_attendance=today_attendance)
+
+@facial_bp.route('/demo')
+@login_required
+@role_required('admin', 'teacher')
+def demo_showcase():
+    """Page de démonstration pour enregistrement vidéo"""
+    user = get_current_user()
+
+    # Informations pour la démonstration
+    demo_info = {
+        'system_name': 'Système de Reconnaissance Faciale - Présence Pro',
+        'version': 'v2.0',
+        'demo_user': 'Elmehdi Rahaoui',
+        'institution': 'École Supérieure de Technologie',
+        'current_time': datetime.now().strftime('%H:%M:%S'),
+        'current_date': datetime.now().strftime('%d/%m/%Y'),
+        'known_faces_count': len(facial_recognition_system.known_face_encodings)
+    }
+
+    return render_template('facial/demo.html', demo_info=demo_info)
 
 @facial_bp.route('/api/start_recognition', methods=['POST'])
 @login_required
